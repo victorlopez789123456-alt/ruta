@@ -397,9 +397,9 @@
         <input id="cfgSupaKey" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;">
       </div>
       <div>
-        <label>Anthropic API key (para extraer facturas de la foto)</label>
+        <label>Anthropic API key (respaldo, opcional)</label>
         <input id="cfgAnthropicKey" placeholder="sk-ant-..." style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;">
-        <p class="muted" style="margin-top:4px;">Se usa solo desde este navegador para leer la imagen de la planilla. Consíguela en console.anthropic.com.</p>
+        <p class="muted" style="margin-top:4px;">La app primero intenta usar la función segura del servidor (<span class="mono">extract-invoice</span>), que mantiene la clave oculta. Solo llena esto si aún no desplegaste esa función y quieres probar en este navegador.</p>
       </div>
     </div>
     <div class="modal foot">
@@ -589,12 +589,59 @@ Responde ÚNICAMENTE con un JSON válido, sin texto adicional, sin explicación,
 
 Si en la imagen hay varias facturas, inclúyelas todas en el arreglo "facturas".`;
 
-async function procesarImagenes(){
-  if(!anthropicKey){
-    toast('Configura tu Anthropic API key en Ajustes');
-    openSettings();
-    return;
+async function extraerViaEdgeFunction(base64, mediaType){
+  const url = supaUrl.replace(/\/$/,'') + '/functions/v1/extract-invoice';
+  const resp = await fetch(url, {
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json',
+      'Authorization': 'Bearer ' + supaKey,
+      'apikey': supaKey
+    },
+    body: JSON.stringify({image_base64: base64, media_type: mediaType})
+  });
+  if(!resp.ok){
+    const errTxt = await resp.text();
+    throw new Error('función extract-invoice: HTTP '+resp.status+' '+errTxt.slice(0,200));
   }
+  const parsed = await resp.json();
+  if(parsed.error) throw new Error(parsed.error);
+  return parsed;
+}
+
+async function extraerViaAnthropicDirecto(base64, mediaType){
+  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json',
+      'x-api-key': anthropicKey,
+      'anthropic-version':'2023-06-01',
+      'anthropic-dangerous-direct-browser-access':'true'
+    },
+    body: JSON.stringify({
+      model:'claude-sonnet-4-6',
+      max_tokens: 4000,
+      messages:[{
+        role:'user',
+        content:[
+          {type:'image', source:{type:'base64', media_type:mediaType, data:base64}},
+          {type:'text', text: EXTRACTION_PROMPT}
+        ]
+      }]
+    })
+  });
+  if(!resp.ok){
+    const errTxt = await resp.text();
+    throw new Error('Anthropic directo: HTTP '+resp.status+': '+errTxt.slice(0,200));
+  }
+  const data = await resp.json();
+  let text = (data.content||[]).map(b=>b.text||'').join('').trim();
+  text = text.replace(/^```json/i,'').replace(/^```/,'').replace(/```$/,'').trim();
+  try{ return JSON.parse(text); }
+  catch(e){ throw new Error('No se pudo interpretar la respuesta como JSON: ' + text.slice(0,200)); }
+}
+
+async function procesarImagenes(){
   if(!state.ruta){ toast('Primero inicia una ruta'); return; }
   const btn = document.getElementById('btnExtraer');
   btn.disabled = true;
@@ -606,38 +653,18 @@ async function procesarImagenes(){
       const base64 = await fileToBase64(file);
       const mediaType = file.type || 'image/jpeg';
 
-      const resp = await fetch('https://api.anthropic.com/v1/messages', {
-        method:'POST',
-        headers:{
-          'Content-Type':'application/json',
-          'x-api-key': anthropicKey,
-          'anthropic-version':'2023-06-01',
-          'anthropic-dangerous-direct-browser-access':'true'
-        },
-        body: JSON.stringify({
-          model:'claude-sonnet-4-6',
-          max_tokens: 4000,
-          messages:[{
-            role:'user',
-            content:[
-              {type:'image', source:{type:'base64', media_type:mediaType, data:base64}},
-              {type:'text', text: EXTRACTION_PROMPT}
-            ]
-          }]
-        })
-      });
-
-      if(!resp.ok){
-        const errTxt = await resp.text();
-        throw new Error('HTTP '+resp.status+': '+errTxt.slice(0,200));
-      }
-      const data = await resp.json();
-      let text = (data.content||[]).map(b=>b.text||'').join('').trim();
-      text = text.replace(/^```json/i,'').replace(/^```/,'').replace(/```$/,'').trim();
-
       let parsed;
-      try{ parsed = JSON.parse(text); }
-      catch(e){ throw new Error('No se pudo interpretar la respuesta como JSON: ' + text.slice(0,200)); }
+      try{
+        logLine('→ usando función segura del servidor...');
+        parsed = await extraerViaEdgeFunction(base64, mediaType);
+      }catch(edgeErr){
+        console.warn('Edge function falló, probando respaldo directo:', edgeErr);
+        if(!anthropicKey){
+          throw new Error('La función segura no respondió (' + edgeErr.message + ') y no hay Anthropic API key de respaldo configurada.');
+        }
+        logLine('→ función segura no disponible, usando clave de respaldo del navegador...');
+        parsed = await extraerViaAnthropicDirecto(base64, mediaType);
+      }
 
       const facturas = parsed.facturas || [];
       logLine('→ ' + facturas.length + ' factura(s) detectada(s).');
