@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LICONSUMAR · Entregas de Ruta</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root{
+  --navy:#132038; --navy2:#1c3358; --navy3:#0b1526;
+  --amber:#c9862d; --amber-lt:#e7ac57; --amber-dk:#96631c;
+  --bg:#efece3; --paper:#ffffff;
+  --line:#16233d; --line-soft:#b9b2a0;
+  --ok:#2f7d4f; --ok-bg:#e5f3ea;
+  --warn:#a9781f; --warn-bg:#fbf0d9;
+  --danger:#b23b32; --danger-bg:#fbe6e3;
+  --muted:#6b6455; --text:#1d1a13;
+  --radius:10px;
+  --shadow:0 1px 2px rgba(19,32,56,.06), 0 6px 20px rgba(19,32,56,.08);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  font-family:'Inter',system-ui,sans-serif;
+  background:
+    radial-gradient(1200px 500px at 90% -10%, #223a63 0%, transparent 60%),
+    var(--bg);
+  color:var(--text);
+  min-height:100vh;
+}
+.mono{font-family:'JetBrains Mono',monospace;}
+::selection{background:var(--amber-lt); color:#1a1200;}
+
+/* ---------- Layout shell ---------- */
+#app{display:flex; min-height:100vh;}
+.sidebar{
+  width:230px; flex:none; background:linear-gradient(180deg,var(--navy) 0%, var(--navy3) 100%);
+  color:#f1ede0; padding:22px 16px; position:sticky; top:0; height:100vh; overflow-y:auto;
+  display:flex; flex-direction:column; gap:18px;
+}
+.brand{display:flex; align-items:center; gap:10px; padding:0 4px 12px; border-bottom:1px solid rgba(255,255,255,.12);}
+.brand .mark{
+  width:36px;height:36px;border-radius:9px;background:linear-gradient(135deg,var(--amber-lt),var(--amber-dk));
+  display:flex;align-items:center;justify-content:center;font-weight:800;color:#241703;font-size:16px;flex:none;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.25);
+}
+.brand h1{font-size:14.5px; font-weight:700; margin:0; line-height:1.25; letter-spacing:.2px;}
+.brand span{display:block; font-size:10.5px; color:#c8bfa2; font-weight:500; letter-spacing:.4px; text-transform:uppercase; margin-top:2px;}
+
+.navtabs{display:flex; flex-direction:column; gap:4px;}
+.navtabs button{
+  all:unset; cursor:pointer; display:flex; align-items:center; gap:10px;
+  padding:10px 12px; border-radius:8px; font-size:13.4px; font-weight:600; color:#d8d2bf;
+  transition:.15s;
+}
+.navtabs button .num{
+  width:20px;height:20px;border-radius:50%;background:rgba(255,255,255,.08);
+  display:flex;align-items:center;justify-content:center;font-size:10.5px; font-weight:700; flex:none;
+}
+.navtabs button:hover{background:rgba(255,255,255,.06); color:#fff;}
+.navtabs button.active{background:var(--amber); color:#241703;}
+.navtabs button.active .num{background:rgba(0,0,0,.18); color:#241703;}
+
+.side-actions{margin-top:auto; display:flex; flex-direction:column; gap:8px; padding-top:14px; border-top:1px solid rgba(255,255,255,.12);}
+.side-actions button{
+  all:unset; cursor:pointer; text-align:center; font-size:12px; font-weight:700; padding:10px 8px; border-radius:8px;
+  letter-spacing:.2px;
+}
+.btn-danger-ghost{background:rgba(178,59,50,.18); color:#f6c9c4; border:1px solid rgba(178,59,50,.4) !important;}
+.btn-danger-ghost:hover{background:rgba(178,59,50,.3);}
+.btn-save-route{background:linear-gradient(135deg,var(--amber-lt),var(--amber-dk)); color:#241703;}
+.btn-save-route:hover{filter:brightness(1.05);}
+
+.main{flex:1; min-width:0; padding:22px 26px 60px;}
+.topbar{display:flex; align-items:center; justify-content:space-between; gap:14px; margin-bottom:18px; flex-wrap:wrap;}
+.topbar h2{margin:0; font-size:20px; font-weight:800; color:var(--navy);}
+.topbar p{margin:2px 0 0; font-size:12.5px; color:var(--muted);}
+.pill{display:inline-flex; align-items:center; gap:6px; background:var(--paper); border:1px solid var(--line-soft); padding:6px 12px; border-radius:999px; font-size:12px; font-weight:600; color:var(--navy); box-shadow:var(--shadow);}
+
+/* ---------- Cards / sections ---------- */
+.card{background:var(--paper); border-radius:var(--radius); box-shadow:var(--shadow); padding:18px 20px; margin-bottom:18px; border:1px solid #e3ded0;}
+.card h3{margin:0 0 12px; font-size:14.5px; font-weight:800; color:var(--navy); display:flex; align-items:center; gap:8px;}
+.card h3 .tag{background:var(--amber); color:#241703; font-size:10px; padding:2px 7px; border-radius:5px; font-weight:800;}
+.grid{display:grid; gap:12px;}
+.grid.cols-2{grid-template-columns:repeat(2,1fr);}
+.grid.cols-3{grid-template-columns:repeat(3,1fr);}
+.grid.cols-4{grid-template-columns:repeat(4,1fr);}
+.grid.cols-6{grid-template-columns:repeat(6,1fr);}
+@media(max-width:1000px){.grid.cols-4,.grid.cols-3,.grid.cols-6{grid-template-columns:repeat(2,1fr);}}
+
+label{display:block; font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.3px; margin-bottom:4px;}
+input[type=text],input[type=date],input[type=number],input[type=tel],select,textarea{
+  width:100%; padding:8px 10px; border:1px solid var(--line-soft); border-radius:7px; font-size:13px; font-family:inherit;
+  background:#fdfcf9; color:var(--text);
+}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--amber-lt); outline-offset:1px; border-color:var(--amber);}
+.field{margin-bottom:0;}
+
+button.btn{all:unset; cursor:pointer; font-family:inherit; font-weight:700; font-size:12.5px; padding:8px 14px; border-radius:7px; display:inline-flex; align-items:center; gap:6px; transition:.15s;}
+.btn-primary{background:var(--navy); color:#fff;}
+.btn-primary:hover{background:var(--navy2);}
+.btn-amber{background:var(--amber); color:#241703;}
+.btn-amber:hover{filter:brightness(1.06);}
+.btn-outline{background:#fff; color:var(--navy); border:1px solid var(--line-soft) !important;}
+.btn-outline:hover{border-color:var(--navy) !important;}
+.btn-ghost{background:transparent; color:var(--muted); padding:6px 8px;}
+.btn-ghost:hover{color:var(--danger);}
+.btn-sm{padding:5px 10px; font-size:11.5px;}
+.btn[disabled]{opacity:.45; cursor:not-allowed;}
+
+/* ---------- Excel-style bordered tables ---------- */
+table.gridtable{width:100%; border-collapse:collapse; font-size:12.3px;}
+table.gridtable th, table.gridtable td{border:1px solid var(--line); padding:6px 8px; text-align:left; vertical-align:middle;}
+table.gridtable thead th{background:var(--navy); color:#f2eede; font-size:10.8px; text-transform:uppercase; letter-spacing:.3px;}
+table.gridtable tbody tr:nth-child(even){background:#f7f4ec;}
+table.gridtable td input, table.gridtable td select{border:none; background:transparent; padding:2px 3px; font-size:12.3px;}
+table.gridtable td input:focus, table.gridtable td select:focus{outline:1px solid var(--amber);}
+table.gridtable td.num, table.gridtable th.num{text-align:right;}
+.editable-cell{cursor:text;}
+.editable-cell:focus{background:#fff8e6; outline:1px solid var(--amber);}
+
+/* ---------- Estado badges ---------- */
+.badge{display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:800; padding:4px 9px; border-radius:999px; letter-spacing:.2px;}
+.badge-ok{background:var(--ok-bg); color:var(--ok);}
+.badge-warn{background:var(--warn-bg); color:var(--warn);}
+.badge-danger{background:var(--danger-bg); color:var(--danger);}
+.badge-pend{background:#e9e5d8; color:var(--muted);}
+.dot{width:8px;height:8px;border-radius:50%; display:inline-block;}
+.dot-ok{background:var(--ok);} .dot-warn{background:var(--warn);} .dot-danger{background:var(--danger);} .dot-pend{background:var(--muted);}
+
+/* ---------- Factura card ---------- */
+.factura-card{border:1px solid var(--line-soft); border-radius:10px; margin-bottom:14px; overflow:hidden; background:#fffdf8;}
+.factura-card.confirmed{border-color:var(--ok);}
+.factura-card .fhead{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 16px; background:#f7f2e5; border-bottom:1px solid var(--line-soft); flex-wrap:wrap; cursor:pointer;}
+.factura-card .fhead .left{display:flex; align-items:center; gap:12px; flex-wrap:wrap;}
+.factura-card .fnum{font-weight:800; color:var(--navy); font-size:14px;}
+.factura-card .fmeta{font-size:11.5px; color:var(--muted);}
+.factura-card .ftotal{font-weight:800; font-family:'JetBrains Mono',monospace; color:var(--navy);}
+.factura-body{padding:16px; display:none;}
+.factura-body.open{display:block;}
+.map-frame{width:100%; height:230px; border:1px solid var(--line-soft); border-radius:8px; margin-top:8px;}
+.sigpad-wrap{border:1px dashed var(--line-soft); border-radius:8px; background:#fff; position:relative;}
+canvas.sigpad{width:100%; height:130px; display:block; touch-action:none; cursor:crosshair;}
+.sigpad-actions{position:absolute; top:6px; right:6px; display:flex; gap:6px;}
+.hidden{display:none !important;}
+.section-note{font-size:11.5px; color:var(--muted); margin-top:6px; line-height:1.5;}
+.divider{height:1px; background:var(--line-soft); margin:14px 0;}
+.flexrow{display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
+.flexrow.between{justify-content:space-between;}
+.chk-row{display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid #eee6d4;}
+.chk-row:last-child{border-bottom:none;}
+.dashboard-strip{display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin-bottom:18px;}
+@media(max-width:1000px){.dashboard-strip{grid-template-columns:repeat(2,1fr);}}
+.dstat{background:var(--paper); border:1px solid #e3ded0; border-radius:10px; padding:12px 14px; box-shadow:var(--shadow);}
+.dstat b{display:block; font-size:19px; font-weight:800; color:var(--navy); font-family:'JetBrains Mono',monospace;}
+.dstat span{font-size:10.5px; text-transform:uppercase; letter-spacing:.3px; color:var(--muted); font-weight:700;}
+.toast{position:fixed; bottom:20px; right:20px; background:var(--navy); color:#fff; padding:12px 18px; border-radius:9px; font-size:13px; font-weight:600; box-shadow:0 8px 24px rgba(0,0,0,.25); z-index:9999; max-width:340px;}
+.toast.err{background:var(--danger);}
+.toast.ok{background:var(--ok);}
+.spinner{width:14px;height:14px;border:2px solid rgba(255,255,255,.4); border-top-color:#fff; border-radius:50%; animation:spin .7s linear infinite; display:inline-block;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.upload-box{border:2px dashed var(--line-soft); border-radius:10px; padding:26px; text-align:center; background:#fbf8f0; cursor:pointer;}
+.upload-box:hover{border-color:var(--amber);}
+.upload-box input{display:none;}
+.icon-btn{background:none;border:none;cursor:pointer;color:var(--muted); font-size:13px;}
+.icon-btn:hover{color:var(--danger);}
+.causales-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:6px 18px; font-size:11.5px; border:1px solid var(--line); padding:10px 12px; background:#f7f4ec;}
+@media(max-width:800px){.causales-grid{grid-template-columns:1fr;}}
+.print-header{text-align:center; padding-bottom:8px;}
+.print-header h4{margin:0; font-size:15px; letter-spacing:.5px;}
+.print-header small{color:var(--muted); font-size:10.5px;}
+.client-thumb{width:100%; max-width:420px; background:#fff; border:1px solid var(--line); border-radius:8px; padding:16px;}
+.mobile-tabs{display:none;}
+@media(max-width:880px){
+  .sidebar{position:fixed; left:-260px; z-index:50; transition:.2s; box-shadow:10px 0 30px rgba(0,0,0,.3);}
+  .sidebar.open{left:0;}
+  .main{padding:16px;}
+  .mobile-tabs{display:flex; align-items:center; gap:10px; margin-bottom:14px;}
+  .mobile-tabs button{all:unset; cursor:pointer; background:var(--navy); color:#fff; padding:8px 12px; border-radius:8px; font-weight:700; font-size:13px;}
+}
+footer.app-footer{text-align:center; font-size:11px; color:var(--muted); padding:20px 0 4px;}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="mark">LM</div>
+      <div>
+        <h1>LICONSUMAR</h1>
+        <span>Del Magdalena · Rutas</span>
+      </div>
+    </div>
+    <nav class="navtabs" id="navtabs">
+      <button data-tab="entregas" class="active"><span class="num">1</span> Entregas</button>
+      <button data-tab="devoluciones"><span class="num">2</span> Devolución</button>
+      <button data-tab="cuadre"><span class="num">3</span> Cuadre de ruta</button>
+      <button data-tab="reenvios"><span class="num">4</span> Reenvíos</button>
+      <button data-tab="clientes"><span class="num">5</span> Clientes</button>
+    </nav>
+    <div class="side-actions">
+      <button class="btn-save-route" id="btnSaveRoute">💾 Guardar ruta y comenzar nueva</button>
+      <button class="btn-danger-ghost" id="btnClearAll">🗑️ Limpiar todos los registros</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="mobile-tabs">
+      <button id="btnMenu">☰ Menú</button>
+      <strong id="mobileTitle" style="color:var(--navy)">Entregas</strong>
+    </div>
+
+    <div id="view"></div>
+
+    <footer class="app-footer">LICONSUMAR Del Magdalena — Aplicación de entregas, devoluciones y cuadre de ruta · datos guardados localmente y en Supabase al confirmar</footer>
+  </main>
+</div>
+
+<script>
+window.SUPABASE_URL = "https://gycqladzxvnbnvytgfoc.supabase.co";
+window.SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd5Y3FsYWR6eHZuYm52eXRnZm9jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4Mzg0MDUsImV4cCI6MjEwMjQxNDQwNX0.DvUEUYUxH59NGKElMPl6HVINEdbod1dMaThyWtVd29s";
+</script>
+<script src="app.js"></script>
+</body>
+</html>
