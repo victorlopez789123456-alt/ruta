@@ -1,0 +1,1617 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RutaExpress · Control de Entregas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --bg:#F3F5F7;
+  --panel:#FFFFFF;
+  --ink:#182430;
+  --muted:#66707C;
+  --line:#E2E6EA;
+  --primary:#173A5E;
+  --primary-ink:#0F2740;
+  --accent:#E8792A;
+  --accent-ink:#B85C15;
+  --ok:#1D8A5E;
+  --ok-bg:#E7F6EF;
+  --warn:#C8891A;
+  --warn-bg:#FBF1DD;
+  --bad:#C6402F;
+  --bad-bg:#FBE9E6;
+  --info:#2461A8;
+  --info-bg:#E8F1FB;
+  --radius:12px;
+  --shadow:0 1px 2px rgba(19,32,48,.06), 0 8px 24px -12px rgba(19,32,48,.14);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:
+    radial-gradient(1200px 500px at 100% -10%, #EAF1F8 0%, transparent 60%),
+    var(--bg);
+  color:var(--ink);
+  font-family:'Inter',system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,.disp{font-family:'Space Grotesk',sans-serif;}
+.mono{font-family:'JetBrains Mono',monospace;}
+button{font-family:inherit;cursor:pointer;}
+input,select,textarea{font-family:inherit;}
+::selection{background:#FDE3CC;}
+
+/* ---------- Topbar ---------- */
+.topbar{
+  position:sticky;top:0;z-index:40;
+  background:linear-gradient(180deg,#132C46,#173A5E 70%);
+  color:#fff;
+  box-shadow:0 4px 18px -8px rgba(10,20,35,.45);
+}
+.topbar-inner{
+  max-width:1400px;margin:0 auto;padding:12px 20px;
+  display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+}
+.logo-mark{
+  width:42px;height:42px;border-radius:10px;
+  background:linear-gradient(135deg,var(--accent),#F5A25A);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.25);
+}
+.brand{display:flex;align-items:center;gap:12px;margin-right:auto;}
+.brand h1{font-size:19px;margin:0;font-weight:700;letter-spacing:.2px;}
+.brand span{display:block;font-size:11px;color:#B9C8DA;font-weight:500;letter-spacing:.4px;text-transform:uppercase;}
+.top-actions{display:flex;gap:8px;flex-wrap:wrap;}
+.btn{
+  border:1px solid transparent;border-radius:9px;padding:9px 14px;
+  font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:6px;
+  transition:transform .12s ease, filter .12s ease; white-space:nowrap;
+}
+.btn:active{transform:translateY(1px);}
+.btn-accent{background:var(--accent);color:#fff;}
+.btn-accent:hover{filter:brightness(1.06);}
+.btn-ghost{background:rgba(255,255,255,.08);color:#fff;border-color:rgba(255,255,255,.25);}
+.btn-ghost:hover{background:rgba(255,255,255,.16);}
+.btn-danger{background:#3A1712;color:#FFD9CE;border-color:#5C2A20;}
+.btn-danger:hover{background:#4A1E17;}
+.btn-primary{background:var(--primary);color:#fff;}
+.btn-primary:hover{filter:brightness(1.1);}
+.btn-outline{background:#fff;color:var(--primary);border-color:var(--line);}
+.btn-outline:hover{background:#F3F7FB;}
+.btn-sm{padding:6px 10px;font-size:12px;border-radius:7px;}
+.btn-icon{padding:7px 9px;}
+.btn[disabled]{opacity:.45;cursor:not-allowed;}
+
+/* ---------- Tabs ---------- */
+.tabs{
+  max-width:1400px;margin:0 auto;padding:0 20px;display:flex;gap:4px;
+  overflow-x:auto;border-top:1px solid rgba(255,255,255,.08);
+}
+.tab-btn{
+  background:transparent;border:none;color:#C4D2E2;padding:12px 16px;
+  font-size:13.5px;font-weight:600;border-bottom:3px solid transparent;
+  display:flex;align-items:center;gap:8px;white-space:nowrap;
+}
+.tab-btn .n{
+  width:19px;height:19px;border-radius:50%;background:rgba(255,255,255,.12);
+  display:inline-flex;align-items:center;justify-content:center;font-size:11px;
+}
+.tab-btn.active{color:#fff;border-bottom-color:var(--accent);}
+.tab-btn.active .n{background:var(--accent);}
+.tab-btn:hover{color:#fff;}
+
+/* ---------- Layout ---------- */
+main{max-width:1400px;margin:0 auto;padding:22px 20px 80px;}
+.view{display:none;}
+.view.active{display:block;animation:fade .25s ease;}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+
+.grid{display:grid;gap:16px;}
+.g-2{grid-template-columns:1fr 1fr;}
+.g-3{grid-template-columns:repeat(3,1fr);}
+.g-4{grid-template-columns:repeat(4,1fr);}
+@media(max-width:900px){.g-2,.g-3,.g-4{grid-template-columns:1fr;}}
+
+.card{
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  box-shadow:var(--shadow);padding:18px;
+}
+.card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
+.card-head h2{font-size:15px;margin:0;font-weight:700;color:var(--primary-ink);}
+.card-head .sub{font-size:12px;color:var(--muted);margin-top:2px;}
+.eyebrow{
+  font-size:10.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--accent-ink);margin:0 0 4px;
+}
+
+.field{display:flex;flex-direction:column;gap:5px;}
+.field label{font-size:11.5px;font-weight:600;color:var(--muted);}
+.field input,.field select,.field textarea{
+  border:1px solid var(--line);border-radius:8px;padding:9px 10px;font-size:13.5px;
+  background:#fff;color:var(--ink);
+}
+.field input:focus,.field select:focus,.field textarea:focus{outline:2px solid #BFD6EC;border-color:var(--primary);}
+.field small{color:var(--muted);font-size:11px;}
+.readonly{background:#F6F8FA !important;color:var(--primary-ink);font-weight:700;}
+
+.pill{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:99px;font-size:11.5px;font-weight:700;}
+.pill-ok{background:var(--ok-bg);color:var(--ok);}
+.pill-warn{background:var(--warn-bg);color:var(--warn);}
+.pill-bad{background:var(--bad-bg);color:var(--bad);}
+.pill-info{background:var(--info-bg);color:var(--info);}
+.pill-neutral{background:#EEF1F4;color:var(--muted);}
+
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th{
+  text-align:left;font-size:10.8px;text-transform:uppercase;letter-spacing:.05em;
+  color:var(--muted);border-bottom:1px solid var(--line);padding:8px 8px;font-weight:700;
+}
+td{padding:7px 8px;border-bottom:1px solid #EEF1F4;vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+tbody tr:hover{background:#FAFBFC;}
+td input, td select{width:100%;border:1px solid transparent;background:transparent;border-radius:6px;padding:5px 6px;font-size:13px;}
+td input:hover,td select:hover{border-color:var(--line);}
+td input:focus,td select:focus{border-color:var(--primary);background:#fff;outline:none;}
+
+.empty{
+  text-align:center;padding:40px 20px;color:var(--muted);
+  border:1.5px dashed var(--line);border-radius:var(--radius);background:#FAFBFC;
+}
+.empty b{color:var(--ink);}
+
+/* factura card */
+.fac-card{border:1px solid var(--line);border-radius:var(--radius);background:#fff;margin-bottom:14px;overflow:hidden;box-shadow:var(--shadow);}
+.fac-head{
+  display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:12px 16px;background:linear-gradient(180deg,#FBFCFD,#F5F7F9);border-bottom:1px solid var(--line);
+}
+.fac-num{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:15px;color:var(--primary-ink);}
+.fac-body{padding:14px 16px;display:grid;grid-template-columns:1.3fr 1fr;gap:16px;}
+@media(max-width:820px){.fac-body{grid-template-columns:1fr;}}
+.map-frame{width:100%;height:190px;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#eef;}
+.map-frame iframe{width:100%;height:100%;border:0;}
+.fac-total{font-size:19px;font-weight:700;color:var(--primary-ink);font-family:'Space Grotesk',sans-serif;}
+.section-header{
+  display:flex;align-items:center;gap:10px;margin:22px 0 10px;
+  font-size:12.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;
+}
+.section-header::after{content:"";flex:1;height:1px;background:var(--line);}
+
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px;}
+.toolbar .field{min-width:170px;}
+.search-wrap{position:relative;flex:1;min-width:230px;}
+.search-wrap input{width:100%;padding-left:32px;}
+.search-wrap svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);opacity:.45;}
+
+.dropzone{
+  border:2px dashed #C9D6E4;border-radius:var(--radius);padding:26px;text-align:center;
+  background:#F8FBFF;color:var(--muted);font-size:13px;
+}
+.dropzone b{color:var(--primary);}
+.dropzone.drag{background:#EAF3FF;border-color:var(--primary);}
+
+.stat{
+  background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;
+  display:flex;flex-direction:column;gap:4px;
+}
+.stat .v{font-size:22px;font-weight:700;font-family:'Space Grotesk',sans-serif;color:var(--primary-ink);}
+.stat .l{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em;}
+
+.chip-row{display:flex;gap:6px;flex-wrap:wrap;}
+.chip{
+  background:#EEF1F4;border-radius:99px;padding:4px 10px;font-size:11.5px;font-weight:600;color:var(--ink);
+  display:inline-flex;align-items:center;gap:6px;
+}
+.chip button{border:none;background:none;color:var(--muted);font-weight:700;padding:0;font-size:13px;line-height:1;}
+
+.subtabs{display:flex;gap:6px;margin-bottom:16px;border-bottom:1px solid var(--line);}
+.subtab{padding:9px 4px;margin-right:14px;border:none;background:none;font-weight:700;font-size:13px;color:var(--muted);border-bottom:2px solid transparent;}
+.subtab.active{color:var(--primary-ink);border-color:var(--accent);}
+
+.modal-bg{
+  position:fixed;inset:0;background:rgba(15,25,40,.55);display:none;align-items:center;justify-content:center;
+  z-index:100;padding:20px;
+}
+.modal-bg.open{display:flex;}
+.modal{background:#fff;border-radius:14px;max-width:560px;width:100%;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.35);max-height:88vh;overflow:auto;}
+.modal h3{margin:0 0 4px;font-size:16px;}
+.modal .close{position:absolute;}
+.modal-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;}
+
+canvas#sigCanvas, canvas#scanCanvas{width:100%;border:1px solid var(--line);border-radius:10px;background:#fdfdfd;touch-action:none;}
+video#scanVideo{width:100%;border-radius:10px;background:#000;}
+
+.toast-wrap{position:fixed;bottom:18px;right:18px;z-index:200;display:flex;flex-direction:column;gap:8px;}
+.toast{
+  background:var(--primary-ink);color:#fff;padding:12px 16px;border-radius:10px;font-size:13px;font-weight:600;
+  box-shadow:0 10px 30px rgba(0,0,0,.25);animation:toastin .18s ease;max-width:320px;
+}
+.toast.bad{background:var(--bad);}
+.toast.ok{background:var(--ok);}
+@keyframes toastin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+.footer-note{margin-top:36px;font-size:12px;color:var(--muted);text-align:center;line-height:1.6;}
+
+@media print{
+  .topbar,.tabs,.toolbar,.no-print,.top-actions{display:none !important;}
+  body{background:#fff;}
+  main{padding:0;max-width:none;}
+  .print-sheet{
+    width:8.5in;min-height:11in;margin:0 auto;padding:.45in;box-shadow:none;border:none;page-break-after:always;
+  }
+  @page{size:letter;margin:0.3in;}
+}
+.print-only{display:none;}
+</style>
+</head>
+<body>
+
+<!-- ============ TOPBAR ============ -->
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <div class="logo-mark">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M3 16V6a1 1 0 0 1 1-1h9v11" stroke="#132C46" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M13 9h4l3 3v4h-2" stroke="#132C46" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="7" cy="17.5" r="1.8" stroke="#132C46" stroke-width="1.8"/><circle cx="17" cy="17.5" r="1.8" stroke="#132C46" stroke-width="1.8"/><path d="M2 12h4" stroke="#132C46" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </div>
+      <div>
+        <h1>RutaExpress</h1>
+        <span>Control de entregas · Santa Marta, Magdalena</span>
+      </div>
+    </div>
+    <div class="top-actions">
+      <span id="syncBadge" class="pill pill-neutral" style="background:rgba(255,255,255,.14);color:#fff;" title="Estado de conexión con Supabase">☁️ Local</span>
+      <button class="btn btn-ghost btn-sm" id="btnBackup" title="Descargar copia de la ruta actual (JSON)">⬇️ Backup</button>
+      <button class="btn btn-accent" id="btnGuardarNueva">💾 Guardar ruta &amp; comenzar nueva</button>
+      <button class="btn btn-danger" id="btnLimpiarTodo">🗑️ Limpiar todos los registros</button>
+    </div>
+  </div>
+  <div class="tabs" id="tabs">
+    <button class="tab-btn active" data-view="v1"><span class="n">1</span> Entregas</button>
+    <button class="tab-btn" data-view="v2"><span class="n">2</span> Devoluciones</button>
+    <button class="tab-btn" data-view="v3"><span class="n">3</span> Cuadre de ruta</button>
+    <button class="tab-btn" data-view="v4"><span class="n">4</span> Facturas reenvío</button>
+    <button class="tab-btn" data-view="v5"><span class="n">5</span> Base de datos</button>
+  </div>
+</div>
+
+<main>
+
+<!-- ============ VIEW 1: ENTREGAS ============ -->
+<section class="view active" id="v1">
+
+  <div class="grid g-2" style="margin-bottom:16px;">
+    <div class="card">
+      <p class="eyebrow">Paso 1</p>
+      <div class="card-head"><h2>Cargar archivo "entregas productos"</h2></div>
+      <div class="dropzone" id="dropzone">
+        📄 Arrastra aquí el Excel de <b>entregas productos</b> o
+        <label style="color:var(--primary);font-weight:700;cursor:pointer;text-decoration:underline;">
+          selecciona el archivo
+          <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display:none;">
+        </label>
+        <div style="margin-top:10px;font-size:11.5px;">Columnas reconocidas automáticamente: factura, cliente, dirección, ciudad, barrio, producto, cantidad, valor, forma de pago, estado.</div>
+      </div>
+      <div id="uploadStatus" style="margin-top:10px;font-size:12.5px;color:var(--muted);"></div>
+    </div>
+
+    <div class="card">
+      <p class="eyebrow">Paso 2</p>
+      <div class="card-head"><h2>Datos de la ruta / planilla</h2><span class="sub">Se copian automáticamente al Cuadre (sección 3)</span></div>
+      <div class="grid g-2" style="gap:10px;">
+        <div class="field"><label>Entregador</label><input id="rEntregador" placeholder="Nombre del entregador"></div>
+        <div class="field"><label>Placa del vehículo</label><input id="rPlaca" placeholder="ABC123"></div>
+        <div class="field"><label>Fecha</label><input id="rFecha" type="date"></div>
+        <div class="field"><label>N° de planilla</label><input id="rPlanilla" placeholder="Ej. 2709"></div>
+        <div class="field"><label>Valor total planilla (declarado)</label><input id="rValorPlanilla" type="number" step="1" placeholder="0"></div>
+        <div class="field"><label>Cta. total facturas</label><input id="rCtaFacturas" class="readonly" readonly></div>
+      </div>
+      <div style="margin-top:10px;font-size:11.5px;color:var(--muted);">Valor total facturas (calculado desde lo cargado): <b id="rValorCalc" class="mono">$0</b></div>
+    </div>
+  </div>
+
+  <div class="grid g-4" style="margin-bottom:18px;" id="statsRow"></div>
+
+  <div class="toolbar">
+    <div class="search-wrap">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#66707C" stroke-width="2"/><path d="M21 21l-4-4" stroke="#66707C" stroke-width="2" stroke-linecap="round"/></svg>
+      <input id="searchFactura" placeholder="Buscar por número de factura (últimos 4 dígitos)…">
+    </div>
+    <div class="field">
+      <label>Agrupar por</label>
+      <select id="groupBy">
+        <option value="none">Sin agrupar</option>
+        <option value="barrio">Barrio</option>
+        <option value="estado">Estado de entrega</option>
+        <option value="formaPago">Forma de pago</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Filtrar estado</label>
+      <select id="filterEstado">
+        <option value="">Todos</option>
+        <option value="Entregada">Entregada</option>
+        <option value="Pendiente">Pendiente</option>
+        <option value="Dev Parcial">Dev Parcial</option>
+        <option value="Dev Total">Dev Total</option>
+      </select>
+    </div>
+    <button class="btn btn-outline btn-sm" id="btnAddFacturaManual">+ Factura manual</button>
+  </div>
+
+  <div id="facturasList"></div>
+</section>
+
+<!-- ============ VIEW 2: DEVOLUCIONES ============ -->
+<section class="view" id="v2">
+  <div class="card-head">
+    <div>
+      <p class="eyebrow">Sección 2</p>
+      <h2 style="font-size:18px;">Documento de devolución</h2>
+      <span class="sub">Se registra en tiempo real desde facturas marcadas Dev Parcial / Dev Total, o de forma manual.</span>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn btn-outline btn-sm" id="btnAddDevManual">+ Registro manual</button>
+      <button class="btn btn-primary btn-sm" id="btnPdfDevolucion">🖨️ Confirmar &amp; generar PDF carta</button>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:12px;overflow:auto;">
+    <table id="tblDevoluciones">
+      <thead>
+        <tr>
+          <th>Fecha</th><th>Placa</th><th>Cliente</th><th>Factura</th><th>Asesor comercial</th>
+          <th>Causal</th><th>Cód. producto</th><th>Descripción</th><th>Cant.</th><th>Firma</th><th class="no-print"></th>
+        </tr>
+      </thead>
+      <tbody id="devBody"></tbody>
+    </table>
+    <div class="empty" id="devEmpty" style="display:none;margin-top:10px;">Aún no hay devoluciones registradas.</div>
+  </div>
+
+  <!-- Printable devolution sheet -->
+  <div id="printDevolucion" style="display:none;">
+    <div class="print-sheet card" id="devPrintSheet">
+      <h2 style="text-align:center;margin:0 0 4px;">DOCUMENTO DE DEVOLUCIÓN</h2>
+      <p style="text-align:center;color:var(--muted);font-size:12px;margin:0 0 14px;" id="devPrintMeta"></p>
+      <table id="devPrintTable" style="font-size:11.5px;"></table>
+    </div>
+  </div>
+</section>
+
+<!-- ============ VIEW 3: CUADRE ============ -->
+<section class="view" id="v3">
+  <div class="card-head">
+    <div>
+      <p class="eyebrow">Sección 3</p>
+      <h2 style="font-size:18px;">Cuadre de ruta / planilla</h2>
+      <span class="sub">Consolidado automático de todas las facturas de la sección 1, agrupadas por forma de pago.</span>
+    </div>
+    <button class="btn btn-primary btn-sm" id="btnPrintCuadre">🖨️ Descargar / imprimir (carta)</button>
+  </div>
+
+  <div class="card" style="margin:12px 0;">
+    <div class="grid g-4">
+      <div><div class="eyebrow">Entregador</div><div id="cEntregador" style="font-weight:700;">—</div></div>
+      <div><div class="eyebrow">Placa</div><div id="cPlaca" style="font-weight:700;">—</div></div>
+      <div><div class="eyebrow">Fecha</div><div id="cFecha" style="font-weight:700;">—</div></div>
+      <div><div class="eyebrow">N° Planilla</div><div id="cPlanilla" style="font-weight:700;">—</div></div>
+    </div>
+  </div>
+
+  <div class="card" style="overflow:auto;">
+    <table id="tblCuadre">
+      <thead><tr><th>Forma de pago</th><th># Facturas</th><th>Total</th></tr></thead>
+      <tbody id="cuadreBody"></tbody>
+    </table>
+  </div>
+
+  <div class="grid g-3" style="margin-top:16px;">
+    <div class="stat"><div class="v" id="cTotalRuta">$0</div><div class="l">Total facturas de ruta</div></div>
+    <div class="stat"><div class="v" id="cTotalLegalizar">$0</div><div class="l">Total a legalizar (efectivo+transf.+créditos+mixtas+saldo − retenciones)</div></div>
+    <div class="stat"><div class="v" id="cDiferencia">$0</div><div class="l">Diferencia vs. valor planilla declarado</div></div>
+  </div>
+
+  <div class="card" style="margin-top:16px;">
+    <div class="eyebrow">Facturas reenvío (sección 4)</div>
+    <p style="font-size:12.5px;color:var(--muted);margin:2px 0 0;">No se suman al total de la ruta — mantienen su propio consolidado: <b id="cReenvioTotal" class="mono">$0</b> (<span id="cReenvioCant">0</span> facturas)</p>
+  </div>
+
+  <!-- printable cuadre -->
+  <div id="printCuadre" style="display:none;">
+    <div class="print-sheet card" id="cuadrePrintSheet"></div>
+  </div>
+</section>
+
+<!-- ============ VIEW 4: REENVÍOS ============ -->
+<section class="view" id="v4">
+  <div class="card-head">
+    <div>
+      <p class="eyebrow">Sección 4</p>
+      <h2 style="font-size:18px;">Facturas reenvío</h2>
+      <span class="sub">Registro manual de N° de factura y total. No se suman al cuadre de ruta; consolidado propio.</span>
+    </div>
+    <button class="btn btn-outline btn-sm" id="btnAddReenvio">+ Agregar factura reenvío</button>
+  </div>
+
+  <div class="card" style="margin-top:12px;overflow:auto;">
+    <table>
+      <thead><tr><th style="width:35%;">N° Factura</th><th style="width:35%;">Total factura</th><th></th></tr></thead>
+      <tbody id="reenvioBody"></tbody>
+    </table>
+    <div class="empty" id="reenvioEmpty" style="display:none;">No hay facturas reenvío registradas.</div>
+  </div>
+
+  <div class="stat" style="margin-top:14px;max-width:280px;">
+    <div class="v" id="reenvioTotalStat">$0</div>
+    <div class="l">Consolidado propio reenvíos</div>
+  </div>
+</section>
+
+<!-- ============ VIEW 5: BASE DE DATOS ============ -->
+<section class="view" id="v5">
+  <div class="subtabs">
+    <button class="subtab active" data-sub="clientes">Clientes</button>
+    <button class="subtab" data-sub="productos">Productos</button>
+    <button class="subtab" data-sub="vendedores">Vendedores</button>
+  </div>
+
+  <!-- Clientes -->
+  <div id="sub-clientes">
+    <div class="card">
+      <div class="card-head"><h2>Nuevo cliente</h2></div>
+      <div class="grid g-3" style="gap:10px;">
+        <div class="field"><label>Nombre del cliente</label><input id="clNombre"></div>
+        <div class="field"><label>Nombre del negocio</label><input id="clNegocio"></div>
+        <div class="field"><label>Teléfono</label><input id="clTelefono"></div>
+        <div class="field" style="grid-column:span 2;"><label>Dirección</label><input id="clDireccion"></div>
+        <div class="field"><label>Horario de atención</label><input id="clHorario" placeholder="Ej. 8am–12m / 2pm–5pm"></div>
+        <div class="field"><label>Vendedor</label><select id="clVendedor"></select></div>
+      </div>
+      <button class="btn btn-primary btn-sm" style="margin-top:12px;" id="btnAddCliente">+ Agregar cliente</button>
+    </div>
+
+    <div class="card" style="margin-top:14px;overflow:auto;">
+      <table>
+        <thead><tr><th>Cliente</th><th>Negocio</th><th>Teléfono</th><th>Dirección</th><th>Horario</th><th>Vendedor</th><th class="no-print"></th></tr></thead>
+        <tbody id="clientesBody"></tbody>
+      </table>
+      <div class="empty" id="clientesEmpty" style="display:none;">Aún no hay clientes registrados.</div>
+    </div>
+  </div>
+
+  <!-- Productos -->
+  <div id="sub-productos" style="display:none;">
+    <div class="grid g-2">
+      <div class="card">
+        <div class="card-head"><h2>Nuevo producto</h2></div>
+        <div class="grid" style="gap:10px;">
+          <div class="field">
+            <label>Código de barras</label>
+            <div style="display:flex;gap:6px;">
+              <input id="prCodigo" placeholder="Escanea o digita el código" style="flex:1;">
+              <button class="btn btn-outline btn-sm" id="btnScan">📷 Escanear</button>
+            </div>
+          </div>
+          <div class="field"><label>Nombre del producto</label><input id="prNombre"></div>
+          <div class="field"><label>Precio unitario</label><input id="prPrecio" type="number" step="1"></div>
+        </div>
+        <button class="btn btn-primary btn-sm" style="margin-top:12px;" id="btnAddProducto">+ Agregar producto</button>
+      </div>
+      <div class="card">
+        <div class="card-head"><h2>Carga masiva por Excel</h2></div>
+        <div class="dropzone" style="padding:18px;">
+          📦 Sube un Excel con columnas: <b>código, producto, precio</b>
+          <div style="margin-top:8px;">
+            <label style="color:var(--primary);font-weight:700;cursor:pointer;text-decoration:underline;">
+              seleccionar archivo
+              <input type="file" id="fileProductos" accept=".xlsx,.xls,.csv" style="display:none;">
+            </label>
+          </div>
+        </div>
+        <div id="prodUploadStatus" style="margin-top:8px;font-size:12px;color:var(--muted);"></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px;overflow:auto;">
+      <table>
+        <thead><tr><th>Código</th><th>Producto</th><th>Precio unitario</th><th class="no-print"></th></tr></thead>
+        <tbody id="productosBody"></tbody>
+      </table>
+      <div class="empty" id="productosEmpty" style="display:none;">Aún no hay productos en la base de datos.</div>
+    </div>
+  </div>
+
+  <!-- Vendedores -->
+  <div id="sub-vendedores" style="display:none;">
+    <div class="card">
+      <div class="card-head"><h2>Vendedores / asesores comerciales</h2><span class="sub">Usados en devoluciones y clientes. Editables.</span></div>
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <input id="vendNuevo" placeholder="Nombre del vendedor" style="flex:1;border:1px solid var(--line);border-radius:8px;padding:9px 10px;">
+        <button class="btn btn-primary btn-sm" id="btnAddVendedor">+ Agregar</button>
+      </div>
+      <div class="chip-row" id="vendedoresChips"></div>
+    </div>
+  </div>
+</section>
+
+<p class="footer-note">RutaExpress guarda todo en el almacenamiento local de este navegador (localStorage), a modo de base de datos ligera.<br>
+"Guardar ruta &amp; comenzar nueva" archiva la ruta actual y limpia solo entregas / devoluciones / reenvíos — la base de datos de clientes, productos y vendedores se conserva.</p>
+
+</main>
+
+<!-- ============ MODALS ============ -->
+<div class="modal-bg" id="modalFirma">
+  <div class="modal">
+    <div class="modal-top">
+      <div><h3>Firma digital del cliente</h3><span style="font-size:12px;color:var(--muted);">Dibuja con el mouse o el dedo</span></div>
+      <button class="btn btn-outline btn-icon btn-sm" id="closeFirma">✕</button>
+    </div>
+    <canvas id="sigCanvas" width="500" height="220"></canvas>
+    <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;">
+      <button class="btn btn-outline btn-sm" id="btnClearSig">Borrar</button>
+      <button class="btn btn-primary btn-sm" id="btnSaveSig">Guardar firma</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modalScan">
+  <div class="modal">
+    <div class="modal-top">
+      <div><h3>Escanear código de barras</h3><span style="font-size:12px;color:var(--muted);">Usa la cámara del dispositivo</span></div>
+      <button class="btn btn-outline btn-icon btn-sm" id="closeScan">✕</button>
+    </div>
+    <video id="scanVideo" autoplay playsinline muted></video>
+    <p id="scanStatus" style="font-size:12px;color:var(--muted);margin-top:8px;"></p>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+/* =====================================================================
+   RUTAEXPRESS — App de entregas (single-file)
+   ===================================================================== */
+
+/* ---------------------- SUPABASE CONFIG ---------------------- */
+// 👇 Reemplaza estos dos valores con los de tu proyecto Supabase
+// (Project Settings → API → Project URL / anon public key)
+const SUPABASE_URL = 'https://TU-PROYECTO.supabase.co';
+const SUPABASE_ANON_KEY = 'TU-ANON-KEY-AQUI';
+// Identificador de "espacio de trabajo". Déjalo en 'default' si solo usas
+// una ruta/camión. Si quieres separar datos de varios camiones en la misma
+// base de datos, usa un valor distinto por camión (ej. 'camion-1').
+const WORKSPACE_ID = 'default';
+
+let supa = null;
+let cloudReady = false;
+if(SUPABASE_URL && !SUPABASE_URL.includes('TU-PROYECTO') && SUPABASE_ANON_KEY && !SUPABASE_ANON_KEY.includes('TU-ANON-KEY')){
+  try{
+    supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    cloudReady = true;
+  }catch(e){ console.error('Error inicializando Supabase:', e); }
+}
+
+function setSyncBadge(state){
+  const el = document.getElementById('syncBadge'); if(!el) return;
+  const map = {
+    local:    ['pill-neutral','☁️ Modo local (Supabase no configurado)'],
+    connecting:['pill-info','☁️ Conectando…'],
+    online:   ['pill-ok','☁️ Sincronizado'],
+    syncing:  ['pill-warn','☁️ Guardando…'],
+    error:    ['pill-bad','☁️ Sin conexión a Supabase']
+  };
+  const [cls,label] = map[state]||map.local;
+  el.className = 'pill '+cls;
+  el.style.background=''; el.style.color='';
+  el.textContent = label;
+}
+
+let cloudSaveTimer = null;
+function queueCloudSave(){
+  if(!cloudReady) return;
+  setSyncBadge('syncing');
+  clearTimeout(cloudSaveTimer);
+  cloudSaveTimer = setTimeout(()=>pushStateToCloud(), 900);
+}
+async function pushStateToCloud(){
+  if(!cloudReady) return;
+  try{
+    const { error } = await supa.from('app_state').upsert({
+      id: WORKSPACE_ID, data: STATE, updated_at: new Date().toISOString()
+    });
+    if(error) throw error;
+    setSyncBadge('online');
+  }catch(err){
+    console.error('Error guardando en Supabase:', err);
+    setSyncBadge('error');
+  }
+}
+async function pullStateFromCloud(){
+  if(!cloudReady){ setSyncBadge('local'); return; }
+  setSyncBadge('connecting');
+  try{
+    const { data, error } = await supa.from('app_state').select('data').eq('id', WORKSPACE_ID).maybeSingle();
+    if(error) throw error;
+    if(data && data.data){
+      STATE = data.data;
+      if(!STATE.vendedores || !STATE.vendedores.length) STATE.vendedores = [...DEFAULT_VENDEDORES];
+      localStorage.setItem('rutaexpress_state', JSON.stringify(STATE));
+      rebuildIndex(); renderAll();
+    } else {
+      // No existe fila todavía en Supabase: sube el estado local actual.
+      await pushStateToCloud();
+    }
+    setSyncBadge('online');
+    subscribeRealtime();
+  }catch(err){
+    console.error('Error conectando con Supabase:', err);
+    setSyncBadge('error');
+    toast('No se pudo conectar con Supabase. Trabajando en modo local.','bad');
+  }
+}
+function subscribeRealtime(){
+  if(!cloudReady) return;
+  supa.channel('app_state_'+WORKSPACE_ID)
+    .on('postgres_changes',
+      {event:'UPDATE', schema:'public', table:'app_state', filter:`id=eq.${WORKSPACE_ID}`},
+      payload=>{
+        if(payload.new && payload.new.data){
+          STATE = payload.new.data;
+          if(!STATE.vendedores || !STATE.vendedores.length) STATE.vendedores = [...DEFAULT_VENDEDORES];
+          localStorage.setItem('rutaexpress_state', JSON.stringify(STATE));
+          rebuildIndex(); renderAll();
+        }
+      })
+    .subscribe();
+}
+
+/* ---------------------- STATE ---------------------- */
+const DEFAULT_VENDEDORES = ["Milena Morales","Cárdenas Iglesias","Helmut","Jesús Gómez","Ana Orozco"];
+const PAGO_CATS = ["EFECTIVO","SALDO A FAVOR","DEV TOTALES","DEV PARCIALES","CREDITOS","RETENCIONES","TRANSFERENCIAS","MIXTA TF","MIXTA EF"];
+
+function emptyState(){
+  return {
+    ruta:{entregador:"",placa:"",fecha:"",planilla:"",valorPlanilla:0},
+    facturas:[],
+    devoluciones:[],
+    reenvios:[],
+    clientes: STATE ? STATE.clientes : [],
+    productos: STATE ? STATE.productos : [],
+    vendedores: STATE ? STATE.vendedores : [...DEFAULT_VENDEDORES]
+  };
+}
+
+let STATE = null;
+function loadState(){
+  try{
+    const raw = localStorage.getItem('rutaexpress_state');
+    if(raw){ STATE = JSON.parse(raw); }
+  }catch(e){ STATE = null; }
+  if(!STATE){
+    STATE = {
+      ruta:{entregador:"",placa:"",fecha:"",planilla:"",valorPlanilla:0},
+      facturas:[], devoluciones:[], reenvios:[],
+      clientes:[], productos:[], vendedores:[...DEFAULT_VENDEDORES]
+    };
+  }
+  if(!STATE.vendedores || !STATE.vendedores.length) STATE.vendedores = [...DEFAULT_VENDEDORES];
+}
+function saveState(){
+  localStorage.setItem('rutaexpress_state', JSON.stringify(STATE));
+  queueCloudSave();
+}
+
+function uid(){ return 'id'+Math.random().toString(36).slice(2,10)+Date.now().toString(36); }
+
+/* ---------------------- UTILS ---------------------- */
+function money(n){
+  n = Number(n)||0;
+  return '$'+n.toLocaleString('es-CO',{maximumFractionDigits:0});
+}
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function todayISO(){ const d=new Date(); return d.toISOString().slice(0,10); }
+function stripAccents(s){ return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+function normHead(s){ return stripAccents(String(s||'')).toLowerCase().trim().replace(/\s+/g,' '); }
+
+function toast(msg, kind){
+  const wrap = document.getElementById('toastWrap');
+  const el = document.createElement('div');
+  el.className = 'toast'+(kind?(' '+kind):'');
+  el.textContent = msg;
+  wrap.appendChild(el);
+  setTimeout(()=>{ el.style.opacity='0'; el.style.transition='opacity .3s'; setTimeout(()=>el.remove(),300); }, 3000);
+}
+
+function confirmDialog(msg){ return window.confirm(msg); }
+
+/* ---------------------- HEADER MATCHING FOR EXCEL ---------------------- */
+const HEAD_MAP = {
+  factura: ['factura','n factura','no factura','nro factura','numero factura','num factura','fact','n° factura'],
+  cliente: ['cliente','nombre cliente','razon social'],
+  direccion: ['direccion','address','dir'],
+  ciudad: ['ciudad','city'],
+  barrio: ['barrio','sector'],
+  producto: ['producto','descripcion','articulo','item','nombre producto'],
+  codigo: ['codigo','cod','codigo producto','cod producto'],
+  cantidad: ['cantidad','cant','qty','unidades'],
+  valorUnitario: ['valor unitario','precio unitario','valor','precio','vlr unit','vlr'],
+  formaPago: ['forma de pago','formapago','pago','tipo pago','forma pago'],
+  estado: ['estado','estado entrega','estado de entrega']
+};
+function matchHeader(h){
+  const n = normHead(h);
+  for(const key in HEAD_MAP){
+    if(HEAD_MAP[key].some(cand=> n===cand || n.includes(cand))) return key;
+  }
+  return null;
+}
+
+/* ---------------------- EXCEL: ENTREGAS PRODUCTOS ---------------------- */
+function normEstado(v){
+  const n = normHead(v);
+  if(!n) return 'Pendiente';
+  if(n.includes('dev') && n.includes('total')) return 'Dev Total';
+  if(n.includes('dev') && n.includes('parcial')) return 'Dev Parcial';
+  if(n.includes('entreg')) return 'Entregada';
+  if(n.includes('pend')) return 'Pendiente';
+  return 'Pendiente';
+}
+function normFormaPago(v){
+  const n = normHead(v);
+  if(!n) return '';
+  if(n.includes('mixta') && (n.includes('tf')||n.includes('transf'))) return 'MIXTA TF';
+  if(n.includes('mixta') && (n.includes('ef')||n.includes('efect'))) return 'MIXTA EF';
+  if(n.includes('saldo')) return 'SALDO A FAVOR';
+  if(n.includes('reten')) return 'RETENCIONES';
+  if(n.includes('transf')) return 'TRANSFERENCIAS';
+  if(n.includes('cred')) return 'CREDITOS';
+  if(n.includes('efect')) return 'EFECTIVO';
+  return '';
+}
+
+function parseWorkbookToRows(wb){
+  const first = wb.SheetNames[0];
+  const ws = wb.Sheets[first];
+  const raw = XLSX.utils.sheet_to_json(ws,{defval:''});
+  if(!raw.length) return [];
+  const sample = raw[0];
+  const colMap = {};
+  Object.keys(sample).forEach(h=>{ const m = matchHeader(h); if(m && !colMap[m]) colMap[m]=h; });
+  return raw.map(r=>({
+    factura: String(r[colMap.factura] ?? '').trim(),
+    cliente: String(r[colMap.cliente] ?? '').trim(),
+    direccion: String(r[colMap.direccion] ?? '').trim(),
+    ciudad: String(r[colMap.ciudad] ?? 'Santa Marta').trim() || 'Santa Marta',
+    barrio: String(r[colMap.barrio] ?? '').trim(),
+    producto: String(r[colMap.producto] ?? '').trim(),
+    codigo: String(r[colMap.codigo] ?? '').trim(),
+    cantidad: Number(r[colMap.cantidad]) || 0,
+    valorUnitario: Number(r[colMap.valorUnitario]) || 0,
+    formaPagoRaw: r[colMap.formaPago] ?? '',
+    estadoRaw: r[colMap.estado] ?? ''
+  })).filter(r=>r.factura);
+}
+
+function ingestFacturaRows(rows){
+  const map = {};
+  rows.forEach(r=>{
+    if(!map[r.factura]){
+      map[r.factura] = {
+        id: uid(), numero: r.factura, cliente:r.cliente, direccion:r.direccion,
+        ciudad:r.ciudad||'Santa Marta', barrio:r.barrio,
+        estado: normEstado(r.estadoRaw), formaPago: normFormaPago(r.formaPagoRaw),
+        vendedor:'', productos:[]
+      };
+    }
+    if(r.producto || r.cantidad || r.valorUnitario){
+      map[r.factura].productos.push({id:uid(), codigo:r.codigo, nombre:r.producto, cantidad:r.cantidad, precio:r.valorUnitario});
+    }
+  });
+  const nuevas = Object.values(map);
+  STATE.facturas = STATE.facturas.concat(nuevas);
+  return nuevas.length;
+}
+
+function facturaTotal(f){
+  return (f.productos||[]).reduce((s,p)=> s + (Number(p.cantidad)||0)*(Number(p.precio)||0), 0);
+}
+
+/* ---------------------- FILE UPLOAD: ENTREGAS ---------------------- */
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+['dragover','dragenter'].forEach(ev=>dropzone.addEventListener(ev,e=>{e.preventDefault();dropzone.classList.add('drag');}));
+['dragleave','drop'].forEach(ev=>dropzone.addEventListener(ev,e=>{e.preventDefault();dropzone.classList.remove('drag');}));
+dropzone.addEventListener('drop', e=>{ const f=e.dataTransfer.files[0]; if(f) handleEntregasFile(f); });
+fileInput.addEventListener('change', e=>{ const f=e.target.files[0]; if(f) handleEntregasFile(f); });
+
+function handleEntregasFile(file){
+  const status = document.getElementById('uploadStatus');
+  status.textContent = 'Leyendo '+file.name+'…';
+  const reader = new FileReader();
+  reader.onload = (e)=>{
+    try{
+      const wb = XLSX.read(e.target.result,{type:'array'});
+      const rows = parseWorkbookToRows(wb);
+      if(!rows.length){ status.textContent = '⚠️ No se encontraron filas válidas. Revisa los encabezados del Excel.'; return; }
+      const n = ingestFacturaRows(rows);
+      saveState();
+      renderAll();
+      status.textContent = '✅ '+n+' factura(s) cargadas desde '+file.name+' ('+rows.length+' filas).';
+      toast(n+' facturas cargadas correctamente','ok');
+    }catch(err){
+      console.error(err);
+      status.textContent = '❌ Error leyendo el archivo: '+err.message;
+      toast('Error leyendo el archivo','bad');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+/* ---------------------- SECTION 1 RENDER ---------------------- */
+let facturaIndex4 = {};
+function rebuildIndex(){
+  facturaIndex4 = {};
+  STATE.facturas.forEach(f=>{
+    const last4 = String(f.numero).slice(-4);
+    (facturaIndex4[last4] = facturaIndex4[last4]||[]).push(f.id);
+  });
+}
+
+function mapEmbedUrl(direccion, ciudad){
+  const q = encodeURIComponent((direccion?direccion+', ':'')+(ciudad||'Santa Marta')+', Magdalena, Colombia');
+  return 'https://www.google.com/maps?q='+q+'&output=embed';
+}
+
+function renderStats(){
+  const facs = STATE.facturas;
+  const total = facs.reduce((s,f)=>s+facturaTotal(f),0);
+  const dev = facs.filter(f=>f.estado==='Dev Parcial'||f.estado==='Dev Total').length;
+  const pend = facs.filter(f=>f.estado==='Pendiente').length;
+  document.getElementById('statsRow').innerHTML = `
+    <div class="stat"><div class="v">${facs.length}</div><div class="l">Facturas cargadas</div></div>
+    <div class="stat"><div class="v">${money(total)}</div><div class="l">Valor total facturas</div></div>
+    <div class="stat"><div class="v">${dev}</div><div class="l">Devoluciones (parcial/total)</div></div>
+    <div class="stat"><div class="v">${pend}</div><div class="l">Pendientes por entregar</div></div>`;
+}
+
+function vendedorOptions(sel){
+  return STATE.vendedores.map(v=>`<option value="${esc(v)}" ${v===sel?'selected':''}>${esc(v)}</option>`).join('')
+    + `<option value="__nuevo__" ${sel==='__nuevo__'?'selected':''}>+ Agregar vendedor…</option>`;
+}
+function pagoOptions(sel){
+  return ['','EFECTIVO','TRANSFERENCIAS','CREDITOS','SALDO A FAVOR','RETENCIONES','MIXTA TF','MIXTA EF']
+    .map(o=>`<option value="${o}" ${o===sel?'selected':''}>${o||'— Seleccionar —'}</option>`).join('');
+}
+function estadoOptions(sel){
+  return ['Pendiente','Entregada','Dev Parcial','Dev Total']
+    .map(o=>`<option value="${o}" ${o===sel?'selected':''}>${o}</option>`).join('');
+}
+function estadoPill(estado){
+  const map = {'Entregada':'pill-ok','Pendiente':'pill-neutral','Dev Parcial':'pill-warn','Dev Total':'pill-bad'};
+  return `<span class="pill ${map[estado]||'pill-neutral'}">${estado}</span>`;
+}
+
+function renderFacturaCard(f){
+  const total = facturaTotal(f);
+  const needsDev = f.estado==='Dev Parcial' || f.estado==='Dev Total';
+  return `
+  <div class="fac-card" data-fid="${f.id}">
+    <div class="fac-head">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <span class="fac-num">#${esc(f.numero)}</span>
+        <span style="font-weight:600;">${esc(f.cliente||'Cliente sin nombre')}</span>
+        ${estadoPill(f.estado)}
+        ${f.barrio?`<span class="pill pill-info">${esc(f.barrio)}</span>`:''}
+      </div>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-outline btn-sm act-share" data-fid="${f.id}">📤 Compartir</button>
+        <button class="btn btn-outline btn-icon btn-sm act-del-factura" data-fid="${f.id}" title="Eliminar factura">🗑️</button>
+      </div>
+    </div>
+    <div class="fac-body">
+      <div>
+        <table class="tbl-productos" data-fid="${f.id}">
+          <thead><tr><th>Producto</th><th style="width:70px;">Cant.</th><th style="width:100px;">Valor</th><th style="width:100px;">Subtotal</th><th class="no-print" style="width:30px;"></th></tr></thead>
+          <tbody>
+            ${(f.productos||[]).map(p=>`
+              <tr data-pid="${p.id}">
+                <td><input class="p-nombre" value="${esc(p.nombre)}" placeholder="Producto"></td>
+                <td><input class="p-cant" type="number" value="${p.cantidad}" style="text-align:right;"></td>
+                <td><input class="p-precio" type="number" value="${p.precio}" style="text-align:right;"></td>
+                <td class="mono" style="text-align:right;">${money((Number(p.cantidad)||0)*(Number(p.precio)||0))}</td>
+                <td class="no-print"><button class="btn btn-outline btn-icon act-del-prod" data-fid="${f.id}" data-pid="${p.id}" style="padding:2px 6px;">✕</button></td>
+              </tr>`).join('') || `<tr><td colspan="5" style="color:var(--muted);">Sin productos</td></tr>`}
+          </tbody>
+        </table>
+        <button class="btn btn-outline btn-sm act-add-prod no-print" data-fid="${f.id}" style="margin-top:8px;">+ Agregar producto</button>
+        <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:12px;color:var(--muted);">Total factura</span>
+          <span class="fac-total">${money(total)}</span>
+        </div>
+        <div class="grid g-2" style="margin-top:12px;gap:8px;">
+          <div class="field"><label>Dirección</label><input class="f-direccion" data-fid="${f.id}" value="${esc(f.direccion)}"></div>
+          <div class="field"><label>Ciudad</label><input class="f-ciudad" data-fid="${f.id}" value="${esc(f.ciudad)}"></div>
+          <div class="field"><label>Barrio</label><input class="f-barrio" data-fid="${f.id}" value="${esc(f.barrio)}"></div>
+          <div class="field"><label>Estado</label><select class="f-estado" data-fid="${f.id}">${estadoOptions(f.estado)}</select></div>
+          <div class="field"><label>Forma de pago</label><select class="f-pago" data-fid="${f.id}" ${needsDev?'disabled':''}>${pagoOptions(f.formaPago)}</select></div>
+          ${needsDev?`<div class="field"><label>Vendedor (devolución)</label><select class="f-vendedor" data-fid="${f.id}">${vendedorOptions(f.vendedor)}</select></div>`:''}
+        </div>
+      </div>
+      <div>
+        <label style="font-size:11.5px;font-weight:600;color:var(--muted);display:block;margin-bottom:5px;">📍 Ubicación GPS aproximada</label>
+        <div class="map-frame"><iframe loading="lazy" src="${mapEmbedUrl(f.direccion,f.ciudad)}"></iframe></div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function currentFacturas(){
+  let list = STATE.facturas.slice();
+  const q = document.getElementById('searchFactura').value.trim();
+  if(q){
+    if(/^\d{4}$/.test(q) && facturaIndex4[q]){
+      const ids = new Set(facturaIndex4[q]);
+      list = list.filter(f=>ids.has(f.id));
+    } else {
+      list = list.filter(f=> String(f.numero).includes(q) || String(f.numero).slice(-4).includes(q));
+    }
+  }
+  const est = document.getElementById('filterEstado').value;
+  if(est) list = list.filter(f=>f.estado===est);
+  return list;
+}
+
+function renderFacturasList(){
+  const list = currentFacturas();
+  const groupBy = document.getElementById('groupBy').value;
+  const cont = document.getElementById('facturasList');
+  if(!STATE.facturas.length){
+    cont.innerHTML = `<div class="empty">📭 Aún no hay facturas. <b>Sube el Excel "entregas productos"</b> arriba, o crea una factura manual.</div>`;
+    return;
+  }
+  if(!list.length){
+    cont.innerHTML = `<div class="empty">No hay facturas que coincidan con la búsqueda / filtro.</div>`;
+    return;
+  }
+  if(groupBy==='none'){
+    cont.innerHTML = list.map(renderFacturaCard).join('');
+    return;
+  }
+  const groups = {};
+  list.forEach(f=>{
+    const key = groupBy==='barrio' ? (f.barrio||'Sin barrio') : groupBy==='estado' ? f.estado : (f.formaPago||'Sin forma de pago');
+    (groups[key]=groups[key]||[]).push(f);
+  });
+  cont.innerHTML = Object.keys(groups).sort().map(k=>`
+    <div class="section-header">${esc(k)} · ${groups[k].length}</div>
+    ${groups[k].map(renderFacturaCard).join('')}
+  `).join('');
+}
+
+function renderRutaPanel(){
+  document.getElementById('rEntregador').value = STATE.ruta.entregador||'';
+  document.getElementById('rPlaca').value = STATE.ruta.placa||'';
+  document.getElementById('rFecha').value = STATE.ruta.fecha||'';
+  document.getElementById('rPlanilla').value = STATE.ruta.planilla||'';
+  document.getElementById('rValorPlanilla').value = STATE.ruta.valorPlanilla||'';
+  document.getElementById('rCtaFacturas').value = STATE.facturas.length;
+  document.getElementById('rValorCalc').textContent = money(STATE.facturas.reduce((s,f)=>s+facturaTotal(f),0));
+}
+['rEntregador','rPlaca','rFecha','rPlanilla','rValorPlanilla'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', e=>{
+    const key = id.replace('r','').replace(/^./,c=>c.toLowerCase());
+    const map = {entregador:'entregador',placa:'placa',fecha:'fecha',planilla:'planilla',valorPlanilla:'valorPlanilla'};
+    STATE.ruta[map[key]] = id==='rValorPlanilla' ? Number(e.target.value)||0 : e.target.value;
+    saveState(); renderCuadre();
+  });
+});
+
+document.getElementById('searchFactura').addEventListener('input', renderFacturasList);
+document.getElementById('groupBy').addEventListener('change', renderFacturasList);
+document.getElementById('filterEstado').addEventListener('change', renderFacturasList);
+
+document.getElementById('btnAddFacturaManual').addEventListener('click', ()=>{
+  const numero = prompt('Número de factura:');
+  if(!numero) return;
+  STATE.facturas.push({id:uid(),numero,cliente:'',direccion:'',ciudad:'Santa Marta',barrio:'',estado:'Pendiente',formaPago:'',vendedor:'',productos:[]});
+  saveState(); rebuildIndex(); renderAll();
+  toast('Factura manual creada','ok');
+});
+
+/* Event delegation inside facturas list */
+document.getElementById('facturasList').addEventListener('click', e=>{
+  const t = e.target;
+  const fid = t.dataset.fid;
+  if(t.classList.contains('act-del-factura')){
+    if(!confirmDialog('¿Eliminar esta factura y sus productos?')) return;
+    STATE.facturas = STATE.facturas.filter(f=>f.id!==fid);
+    saveState(); rebuildIndex(); renderAll();
+  }
+  if(t.classList.contains('act-add-prod')){
+    const f = STATE.facturas.find(f=>f.id===fid);
+    f.productos.push({id:uid(),codigo:'',nombre:'',cantidad:1,precio:0});
+    saveState(); renderFacturasList();
+  }
+  if(t.classList.contains('act-del-prod')){
+    const f = STATE.facturas.find(f=>f.id===fid);
+    f.productos = f.productos.filter(p=>p.id!==t.dataset.pid);
+    saveState(); renderFacturasList();
+  }
+  if(t.classList.contains('act-share')){
+    shareFactura(fid);
+  }
+});
+document.getElementById('facturasList').addEventListener('input', e=>{
+  const t = e.target;
+  const fid = t.dataset.fid;
+  if(!fid) return;
+  const f = STATE.facturas.find(f=>f.id===fid);
+  if(!f) return;
+  if(t.classList.contains('f-direccion')) f.direccion = t.value;
+  if(t.classList.contains('f-ciudad')) f.ciudad = t.value;
+  if(t.classList.contains('f-barrio')) f.barrio = t.value;
+  if(t.classList.contains('p-nombre')||t.classList.contains('p-cant')||t.classList.contains('p-precio')){
+    const row = t.closest('tr'); const pid = row.dataset.pid;
+    const p = f.productos.find(p=>p.id===pid);
+    if(t.classList.contains('p-nombre')) p.nombre = t.value;
+    if(t.classList.contains('p-cant')) p.cantidad = Number(t.value)||0;
+    if(t.classList.contains('p-precio')) p.precio = Number(t.value)||0;
+  }
+  saveState();
+  if(t.classList.contains('p-cant')||t.classList.contains('p-precio')){
+    // just refresh totals without losing focus: recompute subtotal + card total text
+    const row = t.closest('tr');
+    const cant = Number(row.querySelector('.p-cant').value)||0;
+    const precio = Number(row.querySelector('.p-precio').value)||0;
+    row.querySelector('td.mono').textContent = money(cant*precio);
+    const card = t.closest('.fac-card');
+    const f2 = STATE.facturas.find(f=>f.id===fid);
+    card.querySelector('.fac-total').textContent = money(facturaTotal(f2));
+    renderStats(); renderRutaPanel(); renderCuadre();
+  }
+  if(t.classList.contains('f-direccion')||t.classList.contains('f-ciudad')){
+    const card = t.closest('.fac-card');
+    card.querySelector('.map-frame iframe').src = mapEmbedUrl(f.direccion,f.ciudad);
+  }
+});
+document.getElementById('facturasList').addEventListener('change', e=>{
+  const t = e.target;
+  const fid = t.dataset.fid;
+  if(!fid) return;
+  const f = STATE.facturas.find(f=>f.id===fid);
+  if(!f) return;
+  if(t.classList.contains('f-estado')){
+    f.estado = t.value;
+    if(f.estado==='Dev Parcial'||f.estado==='Dev Total'){
+      f.formaPago='';
+      registerDevolucion(f);
+    }
+    saveState(); rebuildIndex(); renderAll();
+  }
+  if(t.classList.contains('f-pago')){ f.formaPago = t.value; saveState(); renderCuadre(); }
+  if(t.classList.contains('f-vendedor')){
+    if(t.value==='__nuevo__'){
+      const nv = prompt('Nombre del nuevo vendedor:');
+      if(nv){ STATE.vendedores.push(nv); f.vendedor = nv; saveState(); renderAll(); toast('Vendedor agregado','ok'); }
+      else { t.value = f.vendedor||''; }
+    } else {
+      f.vendedor = t.value; saveState();
+      const dv = STATE.devoluciones.find(d=>d.facturaId===f.id);
+      if(dv){ dv.asesor = f.vendedor; saveState(); renderDevoluciones(); }
+    }
+  }
+});
+
+/* ---------------------- SHARE / EXPORT FACTURA ---------------------- */
+async function exportNodeImage(node, filename){
+  const canvas = await html2canvas(node, {scale:2, backgroundColor:'#ffffff'});
+  const data = canvas.toDataURL('image/jpeg', 0.95);
+  const a = document.createElement('a'); a.href = data; a.download = filename+'.jpg'; a.click();
+  return data;
+}
+async function exportNodePDF(node, filename){
+  const canvas = await html2canvas(node, {scale:2, backgroundColor:'#ffffff'});
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF('p','pt','letter');
+  const pageW = pdf.internal.pageSize.getWidth();
+  const pageH = pdf.internal.pageSize.getHeight();
+  const ratio = Math.min((pageW-40)/canvas.width, (pageH-40)/canvas.height);
+  const w = canvas.width*ratio, h = canvas.height*ratio;
+  pdf.addImage(canvas.toDataURL('image/jpeg',0.95),'JPEG',(pageW-w)/2,20,w,h);
+  pdf.save(filename+'.pdf');
+}
+
+function shareFactura(fid){
+  const f = STATE.facturas.find(f=>f.id===fid);
+  if(!f) return;
+  const node = document.createElement('div');
+  node.style.cssText = 'position:fixed;left:-9999px;top:0;width:620px;padding:24px;background:#fff;font-family:Inter,sans-serif;';
+  node.innerHTML = `
+    <h2 style="margin:0 0 4px;font-family:'Space Grotesk',sans-serif;">Factura #${esc(f.numero)}</h2>
+    <p style="margin:0 0 14px;color:#66707C;font-size:13px;">${esc(f.cliente)} · ${esc(f.direccion)}, ${esc(f.ciudad)}</p>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead><tr style="border-bottom:1px solid #ddd;"><th style="text-align:left;padding:6px;">Producto</th><th style="padding:6px;">Cant.</th><th style="padding:6px;">Valor</th><th style="padding:6px;">Subtotal</th></tr></thead>
+      <tbody>${f.productos.map(p=>`<tr style="border-bottom:1px solid #eee;"><td style="padding:6px;">${esc(p.nombre)}</td><td style="padding:6px;text-align:right;">${p.cantidad}</td><td style="padding:6px;text-align:right;">${money(p.precio)}</td><td style="padding:6px;text-align:right;">${money(p.cantidad*p.precio)}</td></tr>`).join('')}</tbody>
+    </table>
+    <p style="text-align:right;font-weight:700;font-size:16px;margin-top:10px;">Total: ${money(facturaTotal(f))}</p>`;
+  document.body.appendChild(node);
+  exportNodeImage(node, 'factura_'+f.numero).finally(()=>node.remove());
+}
+
+/* ---------------------- SECTION 2: DEVOLUCIONES ---------------------- */
+function registerDevolucion(f){
+  let dv = STATE.devoluciones.find(d=>d.facturaId===f.id);
+  const causal = f.estado==='Dev Total' ? 'DEV TOTAL FACTURA' : 'DEVOLUCIÓN PARCIAL';
+  const desc = f.estado==='Dev Total' ? 'Devolución total de factura' : (f.productos[0]?f.productos[0].nombre:'Producto devuelto');
+  const cant = f.estado==='Dev Total' ? f.productos.reduce((s,p)=>s+Number(p.cantidad||0),0) : (f.productos[0]?f.productos[0].cantidad:0);
+  if(!dv){
+    dv = {id:uid(), facturaId:f.id, fecha: STATE.ruta.fecha||todayISO(), placa: STATE.ruta.placa||'',
+      cliente:f.cliente, factura:f.numero, asesor:f.vendedor||'', causal, codigo:f.productos[0]?f.productos[0].codigo:'',
+      descripcion:desc, cantidad:cant, firma:''};
+    STATE.devoluciones.push(dv);
+  } else {
+    dv.causal = causal; dv.descripcion = desc; dv.cantidad = cant; dv.cliente=f.cliente; dv.factura=f.numero;
+  }
+  saveState();
+}
+
+function renderDevoluciones(){
+  const body = document.getElementById('devBody');
+  const empty = document.getElementById('devEmpty');
+  const list = STATE.devoluciones;
+  empty.style.display = list.length? 'none':'block';
+  body.innerHTML = list.map(d=>`
+    <tr data-did="${d.id}">
+      <td><input class="d-fecha" type="date" value="${esc(d.fecha)}"></td>
+      <td><input class="d-placa" value="${esc(d.placa)}"></td>
+      <td><input class="d-cliente" value="${esc(d.cliente)}"></td>
+      <td><input class="d-factura" value="${esc(d.factura)}" style="width:70px;"></td>
+      <td><select class="d-asesor">${vendedorOptions(d.asesor)}</select></td>
+      <td><input class="d-causal" value="${esc(d.causal)}"></td>
+      <td><select class="d-codigo">${productoCodeOptions(d.codigo)}</select></td>
+      <td><input class="d-descripcion" value="${esc(d.descripcion)}"></td>
+      <td><input class="d-cantidad" type="number" value="${d.cantidad}" style="width:56px;"></td>
+      <td>${d.firma?`<img src="${d.firma}" style="height:32px;">`:`<button class="btn btn-outline btn-sm act-firmar" data-did="${d.id}">✍️ Firmar</button>`}</td>
+      <td class="no-print"><button class="btn btn-outline btn-icon act-del-dev" data-did="${d.id}">✕</button></td>
+    </tr>`).join('');
+}
+function productoCodeOptions(sel){
+  if(!STATE.productos.length) return `<option value="${esc(sel)}">${esc(sel)||'—'}</option>`;
+  return '<option value="">—</option>'+STATE.productos.map(p=>`<option value="${esc(p.codigo)}" ${p.codigo===sel?'selected':''}>${esc(p.codigo)}</option>`).join('');
+}
+document.getElementById('devBody').addEventListener('input', e=>{
+  const row = e.target.closest('tr'); if(!row) return;
+  const d = STATE.devoluciones.find(d=>d.id===row.dataset.did); if(!d) return;
+  const t = e.target;
+  if(t.classList.contains('d-fecha')) d.fecha = t.value;
+  if(t.classList.contains('d-placa')) d.placa = t.value;
+  if(t.classList.contains('d-cliente')) d.cliente = t.value;
+  if(t.classList.contains('d-factura')) d.factura = t.value;
+  if(t.classList.contains('d-causal')) d.causal = t.value;
+  if(t.classList.contains('d-descripcion')) d.descripcion = t.value;
+  if(t.classList.contains('d-cantidad')) d.cantidad = Number(t.value)||0;
+  saveState();
+});
+document.getElementById('devBody').addEventListener('change', e=>{
+  const row = e.target.closest('tr'); if(!row) return;
+  const d = STATE.devoluciones.find(d=>d.id===row.dataset.did); if(!d) return;
+  const t = e.target;
+  if(t.classList.contains('d-asesor')){
+    if(t.value==='__nuevo__'){
+      const nv = prompt('Nombre del nuevo vendedor:');
+      if(nv){ STATE.vendedores.push(nv); d.asesor = nv; saveState(); renderAll(); }
+    } else { d.asesor = t.value; saveState(); }
+  }
+  if(t.classList.contains('d-codigo')){
+    d.codigo = t.value;
+    const p = STATE.productos.find(p=>p.codigo===t.value);
+    if(p){ d.descripcion = p.nombre; saveState(); renderDevoluciones(); }
+  }
+});
+document.getElementById('devBody').addEventListener('click', e=>{
+  const t = e.target;
+  if(t.classList.contains('act-del-dev')){
+    if(!confirmDialog('¿Eliminar este registro de devolución?')) return;
+    STATE.devoluciones = STATE.devoluciones.filter(d=>d.id!==t.dataset.did);
+    saveState(); renderDevoluciones();
+  }
+  if(t.classList.contains('act-firmar')){ openFirmaModal(t.dataset.did); }
+});
+document.getElementById('btnAddDevManual').addEventListener('click', ()=>{
+  STATE.devoluciones.push({id:uid(), facturaId:null, fecha:STATE.ruta.fecha||todayISO(), placa:STATE.ruta.placa||'',
+    cliente:'', factura:'', asesor:'', causal:'', codigo:'', descripcion:'', cantidad:0, firma:''});
+  saveState(); renderDevoluciones();
+});
+
+/* Firma digital */
+let sigCtx, sigDrawing=false, sigTargetId=null;
+function openFirmaModal(did){
+  sigTargetId = did;
+  document.getElementById('modalFirma').classList.add('open');
+  const cv = document.getElementById('sigCanvas');
+  sigCtx = cv.getContext('2d');
+  sigCtx.clearRect(0,0,cv.width,cv.height);
+  sigCtx.lineWidth = 2.2; sigCtx.lineCap='round'; sigCtx.strokeStyle='#182430';
+}
+document.getElementById('closeFirma').addEventListener('click', ()=>document.getElementById('modalFirma').classList.remove('open'));
+const sigCanvas = document.getElementById('sigCanvas');
+function pos(e){
+  const r = sigCanvas.getBoundingClientRect();
+  const cx = (e.touches? e.touches[0].clientX : e.clientX) - r.left;
+  const cy = (e.touches? e.touches[0].clientY : e.clientY) - r.top;
+  return {x: cx*(sigCanvas.width/r.width), y: cy*(sigCanvas.height/r.height)};
+}
+['mousedown','touchstart'].forEach(ev=>sigCanvas.addEventListener(ev,e=>{sigDrawing=true;const p=pos(e);sigCtx.beginPath();sigCtx.moveTo(p.x,p.y);e.preventDefault();}));
+['mousemove','touchmove'].forEach(ev=>sigCanvas.addEventListener(ev,e=>{if(!sigDrawing)return;const p=pos(e);sigCtx.lineTo(p.x,p.y);sigCtx.stroke();e.preventDefault();}));
+['mouseup','mouseleave','touchend'].forEach(ev=>sigCanvas.addEventListener(ev,()=>sigDrawing=false));
+document.getElementById('btnClearSig').addEventListener('click', ()=>sigCtx.clearRect(0,0,sigCanvas.width,sigCanvas.height));
+document.getElementById('btnSaveSig').addEventListener('click', ()=>{
+  const d = STATE.devoluciones.find(d=>d.id===sigTargetId);
+  if(d){ d.firma = sigCanvas.toDataURL('image/png'); saveState(); renderDevoluciones(); }
+  document.getElementById('modalFirma').classList.remove('open');
+  toast('Firma guardada','ok');
+});
+
+document.getElementById('btnPdfDevolucion').addEventListener('click', async ()=>{
+  if(!STATE.devoluciones.length){ toast('No hay devoluciones para exportar','bad'); return; }
+  const sheet = document.getElementById('printDevolucion');
+  document.getElementById('devPrintMeta').textContent = 'Placa: '+(STATE.ruta.placa||'—')+'  ·  Fecha: '+(STATE.ruta.fecha||'—')+'  ·  Planilla: '+(STATE.ruta.planilla||'—');
+  document.getElementById('devPrintTable').innerHTML = `
+    <thead><tr><th>Fecha</th><th>Placa</th><th>Cliente</th><th>Factura</th><th>Asesor</th><th>Causal</th><th>Cód.</th><th>Descripción</th><th>Cant.</th><th>Firma</th></tr></thead>
+    <tbody>${STATE.devoluciones.map(d=>`<tr><td>${esc(d.fecha)}</td><td>${esc(d.placa)}</td><td>${esc(d.cliente)}</td><td>${esc(d.factura)}</td><td>${esc(d.asesor)}</td><td>${esc(d.causal)}</td><td>${esc(d.codigo)}</td><td>${esc(d.descripcion)}</td><td>${d.cantidad}</td><td>${d.firma?`<img src="${d.firma}" style="height:26px;">`:''}</td></tr>`).join('')}</tbody>`;
+  sheet.style.display='block';
+  await exportNodePDF(document.getElementById('devPrintSheet'), 'devolucion_'+(STATE.ruta.planilla||todayISO()));
+  sheet.style.display='none';
+  toast('PDF de devolución generado','ok');
+});
+
+/* ---------------------- SECTION 3: CUADRE ---------------------- */
+function renderCuadre(){
+  document.getElementById('cEntregador').textContent = STATE.ruta.entregador || '—';
+  document.getElementById('cPlaca').textContent = STATE.ruta.placa || '—';
+  document.getElementById('cFecha').textContent = STATE.ruta.fecha || '—';
+  document.getElementById('cPlanilla').textContent = STATE.ruta.planilla || '—';
+
+  const cats = {};
+  PAGO_CATS.forEach(c=>cats[c]={n:0,total:0});
+  STATE.facturas.forEach(f=>{
+    let key = f.formaPago;
+    if(f.estado==='Dev Total') key='DEV TOTALES';
+    else if(f.estado==='Dev Parcial') key='DEV PARCIALES';
+    if(!key || !cats[key]) return;
+    cats[key].n++; cats[key].total += facturaTotal(f);
+  });
+  document.getElementById('cuadreBody').innerHTML = PAGO_CATS.map(c=>`
+    <tr><td>${c}</td><td>${cats[c].n}</td><td class="mono">${money(cats[c].total)}</td></tr>`).join('');
+
+  const totalRuta = Object.values(cats).reduce((s,c)=>s+c.total,0);
+  const legalizar = (cats['EFECTIVO'].total + cats['TRANSFERENCIAS'].total + cats['CREDITOS'].total +
+    cats['MIXTA TF'].total + cats['MIXTA EF'].total + cats['SALDO A FAVOR'].total) - cats['RETENCIONES'].total;
+  const diff = (Number(STATE.ruta.valorPlanilla)||0) - legalizar;
+
+  document.getElementById('cTotalRuta').textContent = money(totalRuta);
+  document.getElementById('cTotalLegalizar').textContent = money(legalizar);
+  const diffEl = document.getElementById('cDiferencia');
+  diffEl.textContent = money(diff);
+  diffEl.style.color = Math.abs(diff)<1 ? 'var(--ok)' : 'var(--bad)';
+
+  const reenvioTotal = STATE.reenvios.reduce((s,r)=>s+(Number(r.total)||0),0);
+  document.getElementById('cReenvioTotal').textContent = money(reenvioTotal);
+  document.getElementById('cReenvioCant').textContent = STATE.reenvios.length;
+}
+
+document.getElementById('btnPrintCuadre').addEventListener('click', async ()=>{
+  const sheet = document.getElementById('printCuadre');
+  const cats = {};
+  PAGO_CATS.forEach(c=>cats[c]={n:0,total:0});
+  STATE.facturas.forEach(f=>{
+    let key = f.formaPago;
+    if(f.estado==='Dev Total') key='DEV TOTALES'; else if(f.estado==='Dev Parcial') key='DEV PARCIALES';
+    if(!key || !cats[key]) return;
+    cats[key].n++; cats[key].total += facturaTotal(f);
+  });
+  document.getElementById('cuadrePrintSheet').innerHTML = `
+    <h2 style="text-align:center;margin:0 0 2px;">CUADRE DE RUTA / PLANILLA</h2>
+    <p style="text-align:center;color:#66707C;font-size:12px;margin:0 0 16px;">Entregador: ${esc(STATE.ruta.entregador||'—')} · Placa: ${esc(STATE.ruta.placa||'—')} · Fecha: ${esc(STATE.ruta.fecha||'—')} · Planilla N°: ${esc(STATE.ruta.planilla||'—')}</p>
+    <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
+      <thead><tr style="border-bottom:1px solid #ccc;"><th style="text-align:left;padding:6px;">Forma de pago</th><th style="padding:6px;">#Facturas</th><th style="padding:6px;">Total</th></tr></thead>
+      <tbody>${PAGO_CATS.map(c=>`<tr style="border-bottom:1px solid #eee;"><td style="padding:6px;">${c}</td><td style="padding:6px;text-align:center;">${cats[c].n}</td><td style="padding:6px;text-align:right;">${money(cats[c].total)}</td></tr>`).join('')}</tbody>
+    </table>
+    <p style="margin-top:16px;font-size:13px;"><b>Valor planilla declarado:</b> ${money(STATE.ruta.valorPlanilla)}</p>
+    <p style="font-size:13px;"><b>Total facturas reenvío (consolidado propio):</b> ${money(STATE.reenvios.reduce((s,r)=>s+(Number(r.total)||0),0))}</p>`;
+  sheet.style.display='block';
+  await exportNodePDF(document.getElementById('cuadrePrintSheet'), 'cuadre_'+(STATE.ruta.planilla||todayISO()));
+  sheet.style.display='none';
+});
+
+/* ---------------------- SECTION 4: REENVÍOS ---------------------- */
+function renderReenvios(){
+  const body = document.getElementById('reenvioBody');
+  const empty = document.getElementById('reenvioEmpty');
+  empty.style.display = STATE.reenvios.length?'none':'block';
+  body.innerHTML = STATE.reenvios.map(r=>`
+    <tr data-rid="${r.id}">
+      <td><input class="rv-num" value="${esc(r.numero)}"></td>
+      <td><input class="rv-total" type="number" value="${r.total}"></td>
+      <td><button class="btn btn-outline btn-icon act-del-reenvio" data-rid="${r.id}">✕</button></td>
+    </tr>`).join('');
+  document.getElementById('reenvioTotalStat').textContent = money(STATE.reenvios.reduce((s,r)=>s+(Number(r.total)||0),0));
+}
+document.getElementById('btnAddReenvio').addEventListener('click', ()=>{
+  STATE.reenvios.push({id:uid(),numero:'',total:0});
+  saveState(); renderReenvios();
+});
+document.getElementById('reenvioBody').addEventListener('input', e=>{
+  const row = e.target.closest('tr'); if(!row) return;
+  const r = STATE.reenvios.find(r=>r.id===row.dataset.rid); if(!r) return;
+  if(e.target.classList.contains('rv-num')) r.numero = e.target.value;
+  if(e.target.classList.contains('rv-total')) r.total = Number(e.target.value)||0;
+  saveState();
+  document.getElementById('reenvioTotalStat').textContent = money(STATE.reenvios.reduce((s,r)=>s+(Number(r.total)||0),0));
+  renderCuadre();
+});
+document.getElementById('reenvioBody').addEventListener('click', e=>{
+  if(e.target.classList.contains('act-del-reenvio')){
+    STATE.reenvios = STATE.reenvios.filter(r=>r.id!==e.target.dataset.rid);
+    saveState(); renderReenvios(); renderCuadre();
+  }
+});
+
+/* ---------------------- SECTION 5: BASE DE DATOS ---------------------- */
+document.querySelectorAll('.subtab').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.subtab').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    ['clientes','productos','vendedores'].forEach(s=>{
+      document.getElementById('sub-'+s).style.display = (s===btn.dataset.sub)?'block':'none';
+    });
+  });
+});
+
+function renderClientes(){
+  const sel = document.getElementById('clVendedor');
+  sel.innerHTML = STATE.vendedores.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');
+  const body = document.getElementById('clientesBody');
+  document.getElementById('clientesEmpty').style.display = STATE.clientes.length?'none':'block';
+  body.innerHTML = STATE.clientes.map(c=>`
+    <tr data-cid="${c.id}">
+      <td>${esc(c.nombre)}</td><td>${esc(c.negocio)}</td><td>${esc(c.telefono)}</td>
+      <td>${esc(c.direccion)}</td><td>${esc(c.horario)}</td><td>${esc(c.vendedor)}</td>
+      <td class="no-print" style="white-space:nowrap;">
+        <button class="btn btn-outline btn-icon act-cl-img" data-cid="${c.id}" title="Descargar JPG">🖼️</button>
+        <button class="btn btn-outline btn-icon act-cl-pdf" data-cid="${c.id}" title="Descargar PDF">📄</button>
+        <button class="btn btn-outline btn-icon act-cl-share" data-cid="${c.id}" title="Compartir">📤</button>
+        <button class="btn btn-outline btn-icon act-cl-del" data-cid="${c.id}" title="Eliminar">✕</button>
+      </td>
+    </tr>`).join('');
+}
+document.getElementById('btnAddCliente').addEventListener('click', ()=>{
+  const nombre = document.getElementById('clNombre').value.trim();
+  if(!nombre){ toast('Ingresa el nombre del cliente','bad'); return; }
+  STATE.clientes.push({
+    id: uid(), nombre, negocio: document.getElementById('clNegocio').value,
+    telefono: document.getElementById('clTelefono').value, direccion: document.getElementById('clDireccion').value,
+    horario: document.getElementById('clHorario').value, vendedor: document.getElementById('clVendedor').value
+  });
+  ['clNombre','clNegocio','clTelefono','clDireccion','clHorario'].forEach(id=>document.getElementById(id).value='');
+  saveState(); renderClientes();
+  toast('Cliente agregado','ok');
+});
+function clienteCardNode(c){
+  const node = document.createElement('div');
+  node.style.cssText = 'position:fixed;left:-9999px;top:0;width:460px;padding:22px;background:#fff;font-family:Inter,sans-serif;';
+  node.innerHTML = `
+    <h2 style="margin:0 0 10px;font-family:'Space Grotesk',sans-serif;">${esc(c.nombre)}</h2>
+    <p style="margin:2px 0;color:#66707C;font-size:13px;"><b>Negocio:</b> ${esc(c.negocio)||'—'}</p>
+    <p style="margin:2px 0;color:#66707C;font-size:13px;"><b>Teléfono:</b> ${esc(c.telefono)||'—'}</p>
+    <p style="margin:2px 0;color:#66707C;font-size:13px;"><b>Dirección:</b> ${esc(c.direccion)||'—'}</p>
+    <p style="margin:2px 0;color:#66707C;font-size:13px;"><b>Horario de atención:</b> ${esc(c.horario)||'—'}</p>
+    <p style="margin:2px 0;color:#66707C;font-size:13px;"><b>Vendedor:</b> ${esc(c.vendedor)||'—'}</p>`;
+  document.body.appendChild(node);
+  return node;
+}
+document.getElementById('clientesBody').addEventListener('click', async e=>{
+  const t = e.target; const row = t.closest('tr'); if(!row) return;
+  const c = STATE.clientes.find(c=>c.id===row.dataset.cid); if(!c) return;
+  if(t.classList.contains('act-cl-del')){
+    if(!confirmDialog('¿Eliminar este cliente?')) return;
+    STATE.clientes = STATE.clientes.filter(x=>x.id!==c.id); saveState(); renderClientes(); return;
+  }
+  if(t.classList.contains('act-cl-img')){ const n=clienteCardNode(c); await exportNodeImage(n,'cliente_'+c.nombre.replace(/\s+/g,'_')); n.remove(); }
+  if(t.classList.contains('act-cl-pdf')){ const n=clienteCardNode(c); await exportNodePDF(n,'cliente_'+c.nombre.replace(/\s+/g,'_')); n.remove(); }
+  if(t.classList.contains('act-cl-share')){
+    const text = `Cliente: ${c.nombre}\nNegocio: ${c.negocio}\nTeléfono: ${c.telefono}\nDirección: ${c.direccion}\nHorario: ${c.horario}\nVendedor: ${c.vendedor}`;
+    if(navigator.share){ navigator.share({title:'Cliente '+c.nombre, text}).catch(()=>{}); }
+    else { navigator.clipboard.writeText(text); toast('Datos del cliente copiados al portapapeles','ok'); }
+  }
+});
+
+/* Productos */
+function renderProductos(){
+  const body = document.getElementById('productosBody');
+  document.getElementById('productosEmpty').style.display = STATE.productos.length?'none':'block';
+  body.innerHTML = STATE.productos.map(p=>`
+    <tr data-pid="${p.id}">
+      <td class="mono">${esc(p.codigo)}</td><td>${esc(p.nombre)}</td><td>${money(p.precio)}</td>
+      <td class="no-print"><button class="btn btn-outline btn-icon act-prod-del" data-pid="${p.id}">✕</button></td>
+    </tr>`).join('');
+}
+document.getElementById('btnAddProducto').addEventListener('click', ()=>{
+  const nombre = document.getElementById('prNombre').value.trim();
+  if(!nombre){ toast('Ingresa el nombre del producto','bad'); return; }
+  STATE.productos.push({id:uid(), codigo:document.getElementById('prCodigo').value.trim(), nombre, precio:Number(document.getElementById('prPrecio').value)||0});
+  ['prCodigo','prNombre','prPrecio'].forEach(id=>document.getElementById(id).value='');
+  saveState(); renderProductos();
+  toast('Producto agregado','ok');
+});
+document.getElementById('productosBody').addEventListener('click', e=>{
+  if(e.target.classList.contains('act-prod-del')){
+    STATE.productos = STATE.productos.filter(p=>p.id!==e.target.dataset.pid);
+    saveState(); renderProductos();
+  }
+});
+document.getElementById('fileProductos').addEventListener('change', e=>{
+  const file = e.target.files[0]; if(!file) return;
+  const status = document.getElementById('prodUploadStatus');
+  const reader = new FileReader();
+  reader.onload = ev=>{
+    try{
+      const wb = XLSX.read(ev.target.result,{type:'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const raw = XLSX.utils.sheet_to_json(ws,{defval:''});
+      if(!raw.length){ status.textContent='⚠️ Archivo vacío.'; return; }
+      const colMap = {}; Object.keys(raw[0]).forEach(h=>{const m=matchHeader(h); if(m && !colMap[m]) colMap[m]=h;});
+      let n=0;
+      raw.forEach(r=>{
+        const nombre = String(r[colMap.producto]||'').trim();
+        if(!nombre) return;
+        STATE.productos.push({id:uid(), codigo:String(r[colMap.codigo]||'').trim(), nombre, precio:Number(r[colMap.valorUnitario])||0});
+        n++;
+      });
+      saveState(); renderProductos();
+      status.textContent = '✅ '+n+' producto(s) cargados.';
+      toast(n+' productos cargados','ok');
+    }catch(err){ status.textContent='❌ '+err.message; }
+  };
+  reader.readAsArrayBuffer(file);
+});
+
+/* Barcode scan */
+let scanStream = null;
+document.getElementById('btnScan').addEventListener('click', async ()=>{
+  document.getElementById('modalScan').classList.add('open');
+  const statusEl = document.getElementById('scanStatus');
+  const video = document.getElementById('scanVideo');
+  try{
+    scanStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+    video.srcObject = scanStream;
+    if('BarcodeDetector' in window){
+      const detector = new BarcodeDetector();
+      statusEl.textContent = 'Apunta la cámara al código de barras…';
+      const loop = async ()=>{
+        if(!document.getElementById('modalScan').classList.contains('open')) return;
+        try{
+          const codes = await detector.detect(video);
+          if(codes.length){ document.getElementById('prCodigo').value = codes[0].rawValue; closeScanModal(); toast('Código escaneado','ok'); return; }
+        }catch(err){}
+        requestAnimationFrame(loop);
+      };
+      loop();
+    } else {
+      statusEl.textContent = 'Tu navegador no soporta escaneo automático. Cierra esta ventana e ingresa el código manualmente.';
+    }
+  }catch(err){
+    statusEl.textContent = 'No se pudo acceder a la cámara. Ingresa el código manualmente.';
+  }
+});
+function closeScanModal(){
+  document.getElementById('modalScan').classList.remove('open');
+  if(scanStream){ scanStream.getTracks().forEach(t=>t.stop()); scanStream=null; }
+}
+document.getElementById('closeScan').addEventListener('click', closeScanModal);
+
+/* Vendedores */
+function renderVendedores(){
+  document.getElementById('vendedoresChips').innerHTML = STATE.vendedores.map(v=>`
+    <span class="chip">${esc(v)} <button class="act-del-vend" data-v="${esc(v)}">✕</button></span>`).join('');
+}
+document.getElementById('btnAddVendedor').addEventListener('click', ()=>{
+  const inp = document.getElementById('vendNuevo');
+  const v = inp.value.trim();
+  if(!v) return;
+  if(!STATE.vendedores.includes(v)) STATE.vendedores.push(v);
+  inp.value=''; saveState(); renderVendedores(); renderAll();
+});
+document.getElementById('vendedoresChips').addEventListener('click', e=>{
+  if(e.target.classList.contains('act-del-vend')){
+    STATE.vendedores = STATE.vendedores.filter(v=>v!==e.target.dataset.v);
+    saveState(); renderVendedores(); renderAll();
+  }
+});
+
+/* ---------------------- TABS ---------------------- */
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(btn.dataset.view).classList.add('active');
+  });
+});
+
+/* ---------------------- GLOBAL BUTTONS ---------------------- */
+document.getElementById('btnBackup').addEventListener('click', ()=>{
+  const blob = new Blob([JSON.stringify(STATE,null,2)],{type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'ruta_'+(STATE.ruta.planilla||todayISO())+'.json';
+  a.click();
+});
+
+document.getElementById('btnGuardarNueva').addEventListener('click', ()=>{
+  if(!STATE.facturas.length && !confirmDialog('No hay facturas cargadas en esta ruta. ¿Guardar y comenzar una ruta nueva de todas formas?')) return;
+  else if(STATE.facturas.length && !confirmDialog('Se guardará la ruta actual en la base de datos local y se iniciará una ruta nueva (clientes/productos/vendedores se conservan). ¿Continuar?')) return;
+
+  const snapshot = JSON.parse(JSON.stringify(STATE));
+  snapshot.guardadoEn = new Date().toISOString();
+  snapshot.id = uid();
+  let historial = [];
+  try{ historial = JSON.parse(localStorage.getItem('rutaexpress_historial')||'[]'); }catch(e){}
+  historial.push(snapshot);
+  localStorage.setItem('rutaexpress_historial', JSON.stringify(historial));
+  if(cloudReady){
+    supa.from('rutas_historial').insert({
+      workspace_id: WORKSPACE_ID, planilla: STATE.ruta.planilla||null, data: snapshot
+    }).then(({error})=>{ if(error) console.error('Error guardando historial en Supabase:', error); });
+  }
+
+  const blob = new Blob([JSON.stringify(snapshot,null,2)],{type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'ruta_guardada_'+(STATE.ruta.planilla||todayISO())+'.json';
+  a.click();
+
+  const keep = {clientes:STATE.clientes, productos:STATE.productos, vendedores:STATE.vendedores};
+  STATE = {ruta:{entregador:'',placa:'',fecha:'',planilla:'',valorPlanilla:0}, facturas:[], devoluciones:[], reenvios:[], ...keep};
+  saveState(); rebuildIndex(); renderAll();
+  toast('Ruta guardada en la base de datos local. Puedes comenzar una ruta nueva.','ok');
+});
+
+document.getElementById('btnLimpiarTodo').addEventListener('click', ()=>{
+  if(!confirmDialog('⚠️ Esto eliminará TODOS los registros (facturas, devoluciones, reenvíos, clientes, productos y vendedores personalizados). Esta acción no se puede deshacer. ¿Continuar?')) return;
+  if(!confirmDialog('Confirma una vez más: ¿Limpiar TODOS los registros de la aplicación?')) return;
+  localStorage.removeItem('rutaexpress_state');
+  STATE = {ruta:{entregador:'',placa:'',fecha:'',planilla:'',valorPlanilla:0}, facturas:[], devoluciones:[], reenvios:[], clientes:[], productos:[], vendedores:[...DEFAULT_VENDEDORES]};
+  saveState(); rebuildIndex(); renderAll();
+  toast('Todos los registros han sido eliminados','ok');
+  if(cloudReady) pushStateToCloud();
+});
+
+/* ---------------------- INIT ---------------------- */
+function renderAll(){
+  rebuildIndex();
+  renderStats();
+  renderRutaPanel();
+  renderFacturasList();
+  renderDevoluciones();
+  renderCuadre();
+  renderReenvios();
+  renderClientes();
+  renderProductos();
+  renderVendedores();
+}
+loadState();
+if(!document.getElementById('rFecha').value) document.getElementById('rFecha').value = STATE.ruta.fecha || todayISO();
+renderAll();
+setSyncBadge(cloudReady ? 'connecting' : 'local');
+pullStateFromCloud();
+</script>
+</body>
+</html>
