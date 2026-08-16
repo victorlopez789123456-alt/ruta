@@ -1,0 +1,1235 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LICONSUMAR del Magdalena · Entregas de Productos</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --azul:#0d3b66; --azul2:#12569a; --azul-suave:#e8f1fb;
+  --verde:#1c9c5b; --amarillo:#e0a800; --rojo:#d13438;
+  --gris:#5b6472; --gris-claro:#f4f6f9; --borde:#dbe2ea;
+  --texto:#1d2733; --blanco:#fff;
+  --sombra:0 2px 10px rgba(13,59,102,.08);
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Segoe UI',Arial,sans-serif;background:var(--gris-claro);color:var(--texto);}
+header.app{background:linear-gradient(135deg,var(--azul),var(--azul2));color:#fff;padding:18px 24px;
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;position:sticky;top:0;z-index:50;box-shadow:var(--sombra)}
+header.app h1{margin:0;font-size:19px;font-weight:700}
+header.app .sub{font-size:12px;opacity:.85;margin-top:2px}
+.badge-db{font-size:11px;padding:4px 10px;border-radius:20px;background:rgba(255,255,255,.15)}
+.badge-db.ok{background:rgba(28,156,91,.35)}
+.badge-db.err{background:rgba(209,52,56,.4)}
+
+nav.tabs{display:flex;background:#fff;border-bottom:1px solid var(--borde);position:sticky;top:66px;z-index:40;overflow-x:auto}
+nav.tabs button{border:none;background:transparent;padding:14px 20px;font-size:14px;font-weight:600;color:var(--gris);
+  cursor:pointer;white-space:nowrap;border-bottom:3px solid transparent}
+nav.tabs button.active{color:var(--azul2);border-bottom-color:var(--azul2)}
+nav.tabs button:hover{background:var(--azul-suave)}
+
+main{max-width:1300px;margin:0 auto;padding:20px 16px 80px}
+section.view{display:none}
+section.view.active{display:block}
+
+.card{background:#fff;border:1px solid var(--borde);border-radius:12px;padding:18px;margin-bottom:18px;box-shadow:var(--sombra)}
+.card h2{margin:0 0 4px;font-size:17px;color:var(--azul)}
+.card h3{margin:0 0 10px;font-size:14px;color:var(--azul2)}
+.muted{color:var(--gris);font-size:12.5px}
+
+.grid{display:grid;gap:12px}
+.grid.g4{grid-template-columns:repeat(4,1fr)}
+.grid.g3{grid-template-columns:repeat(3,1fr)}
+.grid.g2{grid-template-columns:repeat(2,1fr)}
+@media(max-width:900px){.grid.g4,.grid.g3,.grid.g2{grid-template-columns:1fr 1fr}}
+@media(max-width:600px){.grid.g4,.grid.g3,.grid.g2{grid-template-columns:1fr}}
+
+label{display:block;font-size:12px;font-weight:600;color:var(--gris);margin-bottom:4px}
+input,select,textarea{width:100%;padding:8px 10px;border:1px solid var(--borde);border-radius:8px;font-size:13.5px;font-family:inherit;background:#fff;color:var(--texto)}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--azul2);outline-offset:1px}
+textarea{resize:vertical}
+
+.btn{display:inline-flex;align-items:center;gap:6px;border:none;border-radius:8px;padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer;background:var(--azul2);color:#fff}
+.btn:hover{background:var(--azul)}
+.btn.secondary{background:#fff;color:var(--azul2);border:1px solid var(--azul2)}
+.btn.secondary:hover{background:var(--azul-suave)}
+.btn.green{background:var(--verde)} .btn.green:hover{filter:brightness(.95)}
+.btn.red{background:var(--rojo)} .btn.red:hover{filter:brightness(.95)}
+.btn.amber{background:var(--amarillo)} .btn.amber:hover{filter:brightness(.95)}
+.btn.sm{padding:6px 11px;font-size:12px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-file{position:relative;overflow:hidden}
+.btn-file input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer}
+
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+table th{background:var(--azul-suave);color:var(--azul);text-align:left;padding:8px 8px;position:sticky;top:0}
+table td{padding:7px 8px;border-bottom:1px solid var(--borde)}
+table tr:hover td{background:#fafcff}
+.tbl-wrap{overflow-x:auto;border:1px solid var(--borde);border-radius:8px}
+
+.pill{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700}
+.pill.ok{background:#e4f7ec;color:var(--verde)}
+.pill.novedad{background:#fff6e0;color:var(--amarillo)}
+.pill.devolucion{background:#fdeaea;color:var(--rojo)}
+.pill.pendiente{background:#eef1f5;color:var(--gris)}
+.dot{width:9px;height:9px;border-radius:50%;display:inline-block}
+.dot.ok{background:var(--verde)} .dot.novedad{background:var(--amarillo)} .dot.devolucion{background:var(--rojo)}
+
+.invoice{border:1px solid var(--borde);border-radius:10px;margin-bottom:14px;overflow:hidden}
+.invoice-head{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:#fbfcfe;cursor:pointer;flex-wrap:wrap;gap:8px}
+.invoice-head .left{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.invoice-body{padding:14px;border-top:1px solid var(--borde);display:none}
+.invoice-body.open{display:block}
+.invoice-num{font-weight:700;color:var(--azul)}
+.map-frame{width:100%;height:220px;border:1px solid var(--borde);border-radius:8px;margin-top:8px}
+
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.toolbar .spacer{flex:1}
+.search{max-width:260px}
+
+.novedad-panel{background:#fbfcfe;border:1px dashed var(--borde);border-radius:8px;padding:12px;margin-top:12px}
+.sig-wrap{border:1px dashed var(--borde);border-radius:8px;background:#fff;position:relative}
+.sig-wrap canvas{width:100%;height:130px;display:block;touch-action:none;cursor:crosshair}
+.sig-actions{display:flex;gap:8px;margin-top:6px}
+
+.icon-ok{color:var(--verde)} .icon-warn{color:var(--amarillo)} .icon-bad{color:var(--rojo)}
+
+.kpi{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.kpi .box{flex:1;min-width:150px;background:#fff;border:1px solid var(--borde);border-radius:10px;padding:12px 14px}
+.kpi .box .n{font-size:20px;font-weight:800;color:var(--azul)}
+.kpi .box .l{font-size:11.5px;color:var(--gris)}
+
+.tag-vendedor{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.chip{background:var(--azul-suave);color:var(--azul2);border-radius:20px;padding:3px 10px;font-size:11.5px;display:inline-flex;align-items:center;gap:6px}
+.chip button{border:none;background:transparent;color:var(--azul2);cursor:pointer;font-weight:800}
+
+.modal-bg{position:fixed;inset:0;background:rgba(13,20,30,.55);display:none;align-items:center;justify-content:center;z-index:100;padding:16px}
+.modal-bg.open{display:flex}
+.modal{background:#fff;border-radius:12px;max-width:480px;width:100%;padding:20px;max-height:90vh;overflow:auto}
+.modal h3{margin-top:0}
+
+.toast-wrap{position:fixed;bottom:16px;right:16px;z-index:200;display:flex;flex-direction:column;gap:8px}
+.toast{background:var(--azul);color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;box-shadow:var(--sombra);min-width:220px}
+.toast.err{background:var(--rojo)} .toast.ok{background:var(--verde)}
+
+.empty{padding:30px;text-align:center;color:var(--gris);font-size:13px}
+.hr{height:1px;background:var(--borde);margin:14px 0}
+.small{font-size:11.5px}
+.right{text-align:right}
+.strike{text-decoration:line-through;color:var(--gris)}
+[contenteditable="true"]{background:#fffbe8;outline:1px dashed var(--amarillo)}
+.reenvio-consol{background:var(--azul-suave);border-radius:8px;padding:10px 14px;font-size:13px;color:var(--azul)}
+</style>
+</head>
+<body>
+
+<header class="app">
+  <div>
+    <h1>🚚 LICONSUMAR del Magdalena — Entregas de Productos</h1>
+    <div class="sub">Gestión de entregas · devoluciones · cuadre de ruta · reenvíos</div>
+  </div>
+  <div id="dbBadge" class="badge-db">Conectando a Supabase…</div>
+</header>
+
+<nav class="tabs">
+  <button class="tab-btn active" data-view="v-entregas">1 · Entregas</button>
+  <button class="tab-btn" data-view="v-devolucion">2 · Devolución</button>
+  <button class="tab-btn" data-view="v-cuadre">3 · Cuadre de Ruta</button>
+  <button class="tab-btn" data-view="v-reenvio">4 · Facturas Reenvío</button>
+</nav>
+
+<main>
+
+<!-- ============================================================= -->
+<!-- SECCIÓN 1: ENTREGAS -->
+<!-- ============================================================= -->
+<section id="v-entregas" class="view active">
+
+  <div class="card">
+    <h2>Cargar planilla de entregas</h2>
+    <p class="muted">Sube el Excel <strong>entregas_productos.xlsx</strong> (hoja "Detalle por Factura"). Se agrupan automáticamente los productos por número de factura.</p>
+    <div class="grid g4">
+      <div><label>Entregador</label><input id="hdrEntregador" placeholder="Nombre del entregador"></div>
+      <div><label>Placa del vehículo</label><input id="hdrPlaca" placeholder="Ej: BHK-744"></div>
+      <div><label>Fecha</label><input id="hdrFecha" type="date"></div>
+      <div><label>N° de planilla</label><input id="hdrPlanilla" placeholder="Ej: 4633"></div>
+    </div>
+    <div class="hr"></div>
+    <div class="toolbar">
+      <button class="btn btn-file">📂 Subir Excel de entregas
+        <input type="file" id="fileEntregas" accept=".xlsx,.xls">
+      </button>
+      <button class="btn secondary sm" id="btnManualInvoice">➕ Agregar factura manual</button>
+      <div class="spacer"></div>
+      <input class="search" id="searchInvoice" placeholder="🔎 Buscar factura, cliente, barrio…">
+    </div>
+    <div id="importSummary" class="muted"></div>
+  </div>
+
+  <div class="kpi" id="kpiRow"></div>
+
+  <div class="card">
+    <h2>Facturas cargadas</h2>
+    <div id="invoicesList"></div>
+  </div>
+</section>
+
+<!-- ============================================================= -->
+<!-- SECCIÓN 2: DEVOLUCIÓN -->
+<!-- ============================================================= -->
+<section id="v-devolucion" class="view">
+  <div class="card">
+    <h2>Formato Devolución de Pedidos <span class="muted">(F-GL-001)</span></h2>
+    <p class="muted">Cada devolución registrada al confirmar una entrega con novedad o devolución aparece aquí en tiempo real.</p>
+    <div class="toolbar">
+      <button class="btn secondary sm" id="btnToggleEdit">✏️ Editar plantilla</button>
+      <button class="btn green sm" id="btnSaveEdits" style="display:none">💾 Guardar cambios</button>
+      <div class="spacer"></div>
+      <button class="btn sm" id="btnGenPdf">🖨️ Generar PDF (carta)</button>
+    </div>
+    <div class="tbl-wrap">
+      <table id="tblDevoluciones">
+        <thead>
+          <tr>
+            <th>Fecha</th><th>Placa</th><th>Cliente</th><th>Factura</th><th>Asesor comercial</th>
+            <th>Causal</th><th>Código producto</th><th>Descripción</th><th>Cant. botellas</th><th>Firma</th>
+          </tr>
+        </thead>
+        <tbody id="devolucionesBody"><tr><td colspan="10" class="empty">Aún no hay devoluciones registradas.</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Causales de devolución</h3>
+    <div class="grid g3 small">
+      <div>1- Sin dinero</div><div>2- Error de digitación</div><div>3- Error de despacho</div>
+      <div>4- No hizo pedido</div><div>5- O.C. cerrada</div><div>6- Cliente ausente</div>
+      <div>7- Pto por estampillar</div><div>8- Fecha de vencimiento</div><div>9- Avería en transporte</div>
+      <div>10- Establecimiento cerrado</div><div>11- Problemas de calidad</div><div>12- Dev total factura</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================= -->
+<!-- SECCIÓN 3: CUADRE DE RUTA -->
+<!-- ============================================================= -->
+<section id="v-cuadre" class="view">
+  <div class="card">
+    <h2>Cuadre de Ruta</h2>
+    <div class="grid g4">
+      <div>
+        <label>Seleccionar planilla</label>
+        <select id="selPlanilla"><option value="">— elegir —</option></select>
+      </div>
+      <div><label>Valor total planilla (esperado)</label><input id="cuadreEsperado" type="number" step="0.01" placeholder="0.00"></div>
+      <div><label></label><button class="btn sm" id="btnRefreshCuadre" style="margin-top:22px">🔄 Recalcular</button></div>
+      <div><label></label><button class="btn secondary sm" id="btnPrintCuadre" style="margin-top:22px">🖨️ Imprimir / PDF</button></div>
+    </div>
+  </div>
+
+  <div class="card" id="cuadreDoc">
+    <div class="empty">Selecciona una planilla para ver el cuadre.</div>
+  </div>
+</section>
+
+<!-- ============================================================= -->
+<!-- SECCIÓN 4: FACTURAS REENVÍO -->
+<!-- ============================================================= -->
+<section id="v-reenvio" class="view">
+  <div class="card">
+    <h2>Facturas Reenvío</h2>
+    <p class="muted">Digitación manual. Estas facturas <strong>no</strong> se suman en el cuadre de ruta; tienen su propio consolidado.</p>
+    <div class="grid g4">
+      <div><label>N° factura</label><input id="reFactura" placeholder="FVE-00000000"></div>
+      <div><label>Cliente</label><input id="reCliente" placeholder="Nombre cliente"></div>
+      <div><label>Valor total</label><input id="reValor" type="number" step="0.01" placeholder="0.00"></div>
+      <div><label>Fecha</label><input id="reFecha" type="date"></div>
+    </div>
+    <div class="grid g4" style="margin-top:10px">
+      <div><label>Entregador</label><input id="reEntregador" placeholder="Opcional"></div>
+      <div><label>Placa</label><input id="rePlaca" placeholder="Opcional"></div>
+      <div style="grid-column:span 2"><label>Observaciones</label><input id="reObs" placeholder="Opcional"></div>
+    </div>
+    <div class="hr"></div>
+    <button class="btn" id="btnAddReenvio">➕ Agregar factura reenvío</button>
+  </div>
+
+  <div class="card">
+    <div class="toolbar"><h3 style="margin:0">Consolidado de reenvíos</h3><div class="spacer"></div>
+      <div class="reenvio-consol" id="reenvioTotales">0 facturas · $0</div>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Factura</th><th>Cliente</th><th>Valor</th><th>Fecha</th><th>Entregador</th><th>Placa</th><th>Obs.</th><th></th></tr></thead>
+        <tbody id="reenvioBody"><tr><td colspan="8" class="empty">Sin facturas de reenvío.</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- Modal: agregar vendedor -->
+<div class="modal-bg" id="modalVendedor">
+  <div class="modal">
+    <h3>Agregar vendedor / asesor comercial</h3>
+    <label>Nombre</label>
+    <input id="nuevoVendedorInput" placeholder="Nombre completo">
+    <div class="hr"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn secondary sm" onclick="closeModal('modalVendedor')">Cancelar</button>
+      <button class="btn sm" id="btnConfirmVendedor">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: factura manual -->
+<div class="modal-bg" id="modalManual">
+  <div class="modal">
+    <h3>Agregar factura manual</h3>
+    <div class="grid g2">
+      <div><label>N° factura</label><input id="mFactura"></div>
+      <div><label>Cliente</label><input id="mCliente"></div>
+      <div><label>Barrio</label><input id="mBarrio"></div>
+      <div><label>Dirección</label><input id="mDireccion"></div>
+      <div><label>Ciudad</label><input id="mCiudad" value="Santa Marta"></div>
+      <div><label>Tipo de factura</label>
+        <select id="mTipo"><option>Efectivo</option><option>Credito</option><option>Mix</option><option>Transferencia</option></select>
+      </div>
+      <div><label>Producto</label><input id="mProducto"></div>
+      <div><label>Cantidad</label><input id="mCantidad" type="number"></div>
+      <div><label>Valor neto (total factura)</label><input id="mValor" type="number" step="0.01"></div>
+    </div>
+    <div class="hr"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn secondary sm" onclick="closeModal('modalManual')">Cancelar</button>
+      <button class="btn sm" id="btnConfirmManual">Guardar factura</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+/* =====================================================================
+   CONFIGURACIÓN SUPABASE
+===================================================================== */
+const SUPABASE_URL = 'https://pixxxklckejtbomlieac.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBpeHh4a2xja2VqdGJvbWxpZWFjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4Mzk0MjMsImV4cCI6MjEwMjQxNTQyM30.fvwjwrD0L2H3sDD_tLVLSrdTRuyr91nWywlW8NpUX9Y';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+/* =====================================================================
+   ESTADO GLOBAL
+===================================================================== */
+const CAUSALES = [
+  "1- SIN DINERO","2- ERROR DE DIGITACIÓN","3- ERROR DE DESPACHO","4- NO HIZO PEDIDO",
+  "5- O.C. CERRADA","6- CLIENTE AUSENTE","7- PTO POR ESTAMPILLAR","8- FECHA DE VENCIMIENTO",
+  "9- AVERÍA EN TRANSPORTE","10- ESTABLECIMIENTO CERRADO","11- PROBLEMAS DE CALIDAD","12- DEV TOTAL FACTURA"
+];
+const FORMAS_PAGO = ["Efectivo","Crédito","Transferencia","Mixta Transferencia","Mixta Efectivo",
+  "Dev Totales","Dev Parciales","Saldo a Favor","Retenciones","Reenvio"];
+const TIPOS_FACTURA = ["Efectivo","Credito","Mix","Transferencia"];
+
+let state = {
+  facturas: [],       // [{...factura, productos:[...]}]
+  devoluciones: [],
+  vendedores: [],
+  reenvios: []
+};
+
+function toast(msg, type){
+  const el = document.createElement('div');
+  el.className = 'toast' + (type ? ' '+type : '');
+  el.textContent = msg;
+  document.getElementById('toastWrap').appendChild(el);
+  setTimeout(()=>el.remove(), 4200);
+}
+function money(n){
+  n = Number(n||0);
+  return '$' + n.toLocaleString('es-CO', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+function fmtDate(d){ if(!d) return ''; return d; }
+function uid(){ return 'tmp-'+Math.random().toString(36).slice(2,10); }
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+
+/* =====================================================================
+   CONEXIÓN / CARGA INICIAL
+===================================================================== */
+async function initApp(){
+  const badge = document.getElementById('dbBadge');
+  try{
+    const { error } = await sb.from('vendedores').select('id').limit(1);
+    if(error) throw error;
+    badge.textContent = '● Conectado a Supabase';
+    badge.classList.add('ok');
+  }catch(e){
+    badge.textContent = '⚠ Sin conexión a Supabase (revisa el esquema / RLS)';
+    badge.classList.add('err');
+    console.error(e);
+  }
+  await Promise.all([loadVendedores(), loadFacturas(), loadDevoluciones(), loadReenvios()]);
+  renderAll();
+}
+
+async function loadVendedores(){
+  try{
+    const {data, error} = await sb.from('vendedores').select('*').order('nombre');
+    if(error) throw error;
+    state.vendedores = data || [];
+  }catch(e){ console.error(e); }
+}
+async function loadFacturas(){
+  try{
+    const {data: facs, error} = await sb.from('facturas').select('*').order('created_at', {ascending:false});
+    if(error) throw error;
+    const {data: prods, error:e2} = await sb.from('factura_productos').select('*');
+    if(e2) throw e2;
+    state.facturas = (facs||[]).map(f => ({
+      ...f,
+      productos: (prods||[]).filter(p => p.factura_id === f.id)
+    }));
+  }catch(e){ console.error(e); toast('No se pudieron cargar las facturas','err'); }
+}
+async function loadDevoluciones(){
+  try{
+    const {data, error} = await sb.from('devoluciones').select('*').order('created_at',{ascending:false});
+    if(error) throw error;
+    state.devoluciones = data || [];
+  }catch(e){ console.error(e); }
+}
+async function loadReenvios(){
+  try{
+    const {data, error} = await sb.from('reenvios').select('*').order('created_at',{ascending:false});
+    if(error) throw error;
+    state.reenvios = data || [];
+  }catch(e){ console.error(e); }
+}
+
+function renderAll(){
+  renderKpis();
+  renderInvoices();
+  renderDevoluciones();
+  renderPlanillaOptions();
+  renderReenvios();
+}
+
+/* =====================================================================
+   TABS
+===================================================================== */
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(btn.dataset.view).classList.add('active');
+  });
+});
+
+/* =====================================================================
+   SECCIÓN 1 · IMPORTAR EXCEL DE ENTREGAS
+===================================================================== */
+document.getElementById('fileEntregas').addEventListener('change', handleExcelImport);
+
+async function handleExcelImport(ev){
+  const file = ev.target.files[0];
+  if(!file) return;
+  const summaryEl = document.getElementById('importSummary');
+  summaryEl.textContent = 'Leyendo archivo…';
+  try{
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, {type:'array'});
+    const sheetName = wb.SheetNames.find(n=>/detalle/i.test(n)) || wb.SheetNames[0];
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], {header:1, raw:true, defval:''});
+
+    // localizar fila de encabezado
+    let headerIdx = rows.findIndex(r => r.some(c => String(c).toLowerCase().includes('factura')));
+    if(headerIdx === -1) headerIdx = 0;
+    const dataRows = rows.slice(headerIdx+1);
+
+    const hdrEntregador = document.getElementById('hdrEntregador').value.trim();
+    const hdrPlaca = document.getElementById('hdrPlaca').value.trim();
+    const hdrFecha = document.getElementById('hdrFecha').value;
+    const hdrPlanilla = document.getElementById('hdrPlanilla').value.trim();
+
+    let current = null;
+    const grouped = [];
+    for(const r of dataRows){
+      const [facturaCell, producto, cantidad, barrio, direccion, ciudad, valorNeto, valorTotalFactura] = r;
+      if(!producto) continue; // fila vacía
+      const facturaNum = String(facturaCell || '').trim();
+      if(facturaNum){
+        current = {
+          factura_numero: facturaNum,
+          cliente: '', barrio: barrio||'', direccion: direccion||'', ciudad: ciudad||'Santa Marta',
+          tipo_factura: 'Efectivo',
+          valor_total_original: 0,
+          entregador: hdrEntregador, placa: hdrPlaca, fecha: hdrFecha || null, numero_planilla: hdrPlanilla,
+          productos: []
+        };
+        grouped.push(current);
+      }
+      if(!current) continue;
+      current.productos.push({
+        producto: String(producto).trim(),
+        cantidad: Number(cantidad)||0,
+        valor_neto: Number(valorNeto)||0
+      });
+      if(valorTotalFactura){
+        current.valor_total_original = Number(valorTotalFactura)||0;
+      }
+    }
+    // si alguna factura no trajo total explícito, sumar valor_neto de sus productos
+    grouped.forEach(g=>{
+      if(!g.valor_total_original){
+        g.valor_total_original = g.productos.reduce((s,p)=>s+p.valor_neto,0);
+      }
+    });
+
+    if(grouped.length === 0){
+      toast('No se encontraron facturas en el archivo','err');
+      summaryEl.textContent = '';
+      return;
+    }
+
+    summaryEl.textContent = `Guardando ${grouped.length} facturas en Supabase…`;
+    let ok = 0;
+    for(const g of grouped){
+      const inserted = await insertFacturaConProductos(g);
+      if(inserted) ok++;
+    }
+    summaryEl.textContent = `✅ Importadas ${ok} de ${grouped.length} facturas.`;
+    toast(`${ok} facturas importadas correctamente`, 'ok');
+    await loadFacturas();
+    renderAll();
+  }catch(e){
+    console.error(e);
+    summaryEl.textContent = '';
+    toast('Error leyendo el Excel: '+e.message, 'err');
+  }finally{
+    ev.target.value = '';
+  }
+}
+
+async function insertFacturaConProductos(g){
+  try{
+    const payload = {
+      factura_numero: g.factura_numero, cliente: g.cliente, barrio: g.barrio, direccion: g.direccion,
+      ciudad: g.ciudad, tipo_factura: g.tipo_factura, valor_total_original: g.valor_total_original,
+      valor_total: g.valor_total_original, entregador: g.entregador, placa: g.placa,
+      fecha: g.fecha, numero_planilla: g.numero_planilla, estado_entrega: 'pendiente'
+    };
+    const {data, error} = await sb.from('facturas').insert(payload).select().single();
+    if(error) throw error;
+    const prodPayload = g.productos.map(p => ({
+      factura_id: data.id, producto: p.producto, cantidad: p.cantidad, valor_neto: p.valor_neto
+    }));
+    if(prodPayload.length){
+      const {error:e2} = await sb.from('factura_productos').insert(prodPayload);
+      if(e2) throw e2;
+    }
+    return true;
+  }catch(e){
+    console.error('Error insertando factura', g.factura_numero, e);
+    return false;
+  }
+}
+
+/* --- Factura manual --- */
+document.getElementById('btnManualInvoice').addEventListener('click', ()=> openModal('modalManual'));
+document.getElementById('btnConfirmManual').addEventListener('click', async ()=>{
+  const g = {
+    factura_numero: document.getElementById('mFactura').value.trim() || ('MAN-'+Date.now()),
+    cliente: document.getElementById('mCliente').value.trim(),
+    barrio: document.getElementById('mBarrio').value.trim(),
+    direccion: document.getElementById('mDireccion').value.trim(),
+    ciudad: document.getElementById('mCiudad').value.trim() || 'Santa Marta',
+    tipo_factura: document.getElementById('mTipo').value,
+    valor_total_original: Number(document.getElementById('mValor').value)||0,
+    entregador: document.getElementById('hdrEntregador').value.trim(),
+    placa: document.getElementById('hdrPlaca').value.trim(),
+    fecha: document.getElementById('hdrFecha').value || null,
+    numero_planilla: document.getElementById('hdrPlanilla').value.trim(),
+    productos: [{
+      producto: document.getElementById('mProducto').value.trim() || 'PRODUCTO',
+      cantidad: Number(document.getElementById('mCantidad').value)||0,
+      valor_neto: Number(document.getElementById('mValor').value)||0
+    }]
+  };
+  const ok = await insertFacturaConProductos(g);
+  if(ok){
+    toast('Factura agregada','ok');
+    closeModal('modalManual');
+    await loadFacturas(); renderAll();
+  } else toast('Error guardando la factura','err');
+});
+
+/* =====================================================================
+   KPIs
+===================================================================== */
+function renderKpis(){
+  const list = state.facturas;
+  const total = list.reduce((s,f)=>s+Number(f.valor_total||0),0);
+  const ok = list.filter(f=>f.estado_entrega==='ok').length;
+  const nov = list.filter(f=>f.estado_entrega==='novedad').length;
+  const dev = list.filter(f=>f.estado_entrega==='devolucion').length;
+  const pend = list.filter(f=>!f.estado_entrega || f.estado_entrega==='pendiente').length;
+  document.getElementById('kpiRow').innerHTML = `
+    <div class="box"><div class="n">${list.length}</div><div class="l">Facturas cargadas</div></div>
+    <div class="box"><div class="n">${money(total)}</div><div class="l">Valor total (ajustado)</div></div>
+    <div class="box"><div class="n" style="color:var(--verde)">${ok}</div><div class="l">Entregadas OK</div></div>
+    <div class="box"><div class="n" style="color:var(--amarillo)">${nov}</div><div class="l">Con novedad</div></div>
+    <div class="box"><div class="n" style="color:var(--rojo)">${dev}</div><div class="l">Devoluciones</div></div>
+    <div class="box"><div class="n" style="color:var(--gris)">${pend}</div><div class="l">Pendientes</div></div>
+  `;
+}
+
+/* =====================================================================
+   LISTA DE FACTURAS (SECCIÓN 1)
+===================================================================== */
+document.getElementById('searchInvoice').addEventListener('input', renderInvoices);
+
+function renderInvoices(){
+  const q = document.getElementById('searchInvoice').value.toLowerCase().trim();
+  const wrap = document.getElementById('invoicesList');
+  let list = state.facturas;
+  if(q){
+    list = list.filter(f =>
+      (f.factura_numero||'').toLowerCase().includes(q) ||
+      (f.cliente||'').toLowerCase().includes(q) ||
+      (f.barrio||'').toLowerCase().includes(q) ||
+      (f.direccion||'').toLowerCase().includes(q)
+    );
+  }
+  if(list.length===0){ wrap.innerHTML = '<div class="empty">No hay facturas para mostrar. Sube un Excel arriba.</div>'; return; }
+
+  wrap.innerHTML = list.map(f => invoiceCardHtml(f)).join('');
+
+  // listeners
+  list.forEach(f=>{
+    const headEl = document.getElementById('head-'+f.id);
+    if(headEl) headEl.addEventListener('click', ()=>{
+      document.getElementById('body-'+f.id).classList.toggle('open');
+    });
+  });
+}
+
+function estadoPill(estado){
+  if(estado === 'ok') return `<span class="pill ok"><span class="dot ok"></span>OK</span>`;
+  if(estado === 'novedad') return `<span class="pill novedad"><span class="dot novedad"></span>Novedad</span>`;
+  if(estado === 'devolucion') return `<span class="pill devolucion"><span class="dot devolucion"></span>Devolución</span>`;
+  return `<span class="pill pendiente">Pendiente</span>`;
+}
+
+function invoiceCardHtml(f){
+  const mapsQuery = encodeURIComponent(`${f.direccion||''}, ${f.barrio||''}, ${f.ciudad||'Santa Marta'}, Magdalena, Colombia`);
+  const prodRows = (f.productos||[]).map(p => `
+    <tr data-pid="${p.id}">
+      <td>${escapeHtml(p.producto)}</td>
+      <td><input type="number" value="${p.cantidad}" data-field="cantidad" data-pid="${p.id}" data-fid="${f.id}" class="prodEdit" style="width:70px"></td>
+      <td><input type="number" step="0.01" value="${p.valor_neto}" data-field="valor_neto" data-pid="${p.id}" data-fid="${f.id}" class="prodEdit" style="width:100px"></td>
+      <td class="small">${p.cantidad_devuelta>0 ? `<span class="strike">${p.cantidad_devuelta} dev.</span>` : '—'}</td>
+    </tr>`).join('');
+
+  return `
+  <div class="invoice">
+    <div class="invoice-head" id="head-${f.id}">
+      <div class="left">
+        <span class="invoice-num">${escapeHtml(f.factura_numero)}</span>
+        ${estadoPill(f.estado_entrega)}
+        <span class="small muted">${escapeHtml(f.barrio||'')} · ${escapeHtml(f.direccion||'')}</span>
+      </div>
+      <div class="left">
+        <span class="small muted">Tipo: ${escapeHtml(f.tipo_factura||'-')}</span>
+        <strong>${money(f.valor_total)}</strong>
+        <button class="btn secondary sm" onclick="event.stopPropagation();deleteFactura('${f.id}')">🗑️</button>
+      </div>
+    </div>
+    <div class="invoice-body" id="body-${f.id}">
+      <div class="grid g4">
+        <div><label>Cliente</label><input value="${escapeAttr(f.cliente||'')}" onchange="updateFacturaField('${f.id}','cliente',this.value)"></div>
+        <div><label>Dirección</label><input value="${escapeAttr(f.direccion||'')}" onchange="updateFacturaField('${f.id}','direccion',this.value)"></div>
+        <div><label>Ciudad</label><input value="${escapeAttr(f.ciudad||'Santa Marta')}" onchange="updateFacturaField('${f.id}','ciudad',this.value)"></div>
+        <div><label>Tipo de factura</label>
+          <select onchange="updateFacturaField('${f.id}','tipo_factura',this.value)">
+            ${TIPOS_FACTURA.map(t=>`<option ${t===f.tipo_factura?'selected':''}>${t}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <iframe class="map-frame" loading="lazy" referrerpolicy="no-referrer-when-downgrade"
+        src="https://maps.google.com/maps?q=${mapsQuery}&output=embed"></iframe>
+
+      <div class="hr"></div>
+      <h3>Productos de la factura</h3>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Producto</th><th>Cantidad</th><th>Valor neto</th><th>Devuelto</th></tr></thead>
+          <tbody>${prodRows || '<tr><td colspan="4" class="empty">Sin productos</td></tr>'}</tbody>
+        </table>
+      </div>
+      <div class="right" style="margin-top:6px"><strong>Total factura: ${money(f.valor_total)}</strong>
+        ${f.valor_total !== f.valor_total_original ? `<span class="small muted"> (original ${money(f.valor_total_original)})</span>` : ''}
+      </div>
+
+      <div class="hr"></div>
+      ${deliveryPanelHtml(f)}
+    </div>
+  </div>`;
+}
+
+function escapeHtml(s){ return String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function escapeAttr(s){ return escapeHtml(s); }
+
+/* --- edición inline de campos de factura --- */
+window.updateFacturaField = async function(id, field, value){
+  try{
+    const {error} = await sb.from('facturas').update({[field]: value}).eq('id', id);
+    if(error) throw error;
+    const f = state.facturas.find(x=>x.id===id);
+    if(f) f[field] = value;
+    toast('Factura actualizada','ok');
+  }catch(e){ console.error(e); toast('No se pudo actualizar','err'); }
+};
+
+window.deleteFactura = async function(id){
+  if(!confirm('¿Eliminar esta factura y sus productos/devoluciones asociadas?')) return;
+  try{
+    const {error} = await sb.from('facturas').delete().eq('id', id);
+    if(error) throw error;
+    toast('Factura eliminada','ok');
+    await loadFacturas(); await loadDevoluciones(); renderAll();
+  }catch(e){ console.error(e); toast('Error eliminando factura','err'); }
+};
+
+document.getElementById('invoicesList').addEventListener('change', async (ev)=>{
+  if(!ev.target.classList.contains('prodEdit')) return;
+  const pid = ev.target.dataset.pid, fid = ev.target.dataset.fid, field = ev.target.dataset.field;
+  const val = Number(ev.target.value)||0;
+  try{
+    const {error} = await sb.from('factura_productos').update({[field]: val}).eq('id', pid);
+    if(error) throw error;
+    const f = state.facturas.find(x=>x.id===fid);
+    if(f){
+      const p = f.productos.find(x=>x.id===pid);
+      if(p) p[field] = val;
+      if(field==='valor_neto'){
+        f.valor_total = f.productos.reduce((s,pp)=>s + (pp.valor_neto - (pp.cantidad_devuelta? (pp.valor_neto/pp.cantidad)*pp.cantidad_devuelta:0)),0);
+        await sb.from('facturas').update({valor_total: f.valor_total}).eq('id', fid);
+      }
+    }
+    renderInvoices(); renderKpis();
+  }catch(e){ console.error(e); toast('Error guardando el producto','err'); }
+});
+
+/* =====================================================================
+   PANEL DE CONFIRMACIÓN DE ENTREGA (dentro de cada factura)
+===================================================================== */
+function deliveryPanelHtml(f){
+  const causalesOptions = CAUSALES.map(c=>`<option ${f.causal_devolucion===c?'selected':''}>${c}</option>`).join('');
+  const vendedoresOptions = state.vendedores.map(v=>`<option ${f.vendedor===v.nombre?'selected':''}>${v.nombre}</option>`).join('');
+  const showVendedor = (f.estado_entrega==='novedad' || f.estado_entrega==='devolucion');
+  const prodOptions = (f.productos||[]).map(p=>`<option value="${p.id}">${escapeHtml(p.producto)} (disp: ${p.cantidad-(p.cantidad_devuelta||0)})</option>`).join('');
+
+  return `
+  <h3>Confirmar entrega</h3>
+  <div class="grid g4">
+    <div>
+      <label>Forma de pago / resultado</label>
+      <select id="fp-${f.id}">
+        <option value="">— seleccionar —</option>
+        ${FORMAS_PAGO.map(o=>`<option ${f.forma_pago===o?'selected':''}>${o}</option>`).join('')}
+      </select>
+    </div>
+    <div>
+      <label>Estado de entrega</label>
+      <select id="est-${f.id}" onchange="onEstadoChange('${f.id}', this.value)">
+        <option value="">— seleccionar —</option>
+        <option value="ok" ${f.estado_entrega==='ok'?'selected':''}>OK ✅</option>
+        <option value="novedad" ${f.estado_entrega==='novedad'?'selected':''}>Novedad / Dev. parcial ⚠️</option>
+        <option value="devolucion" ${f.estado_entrega==='devolucion'?'selected':''}>Devolución total ❌</option>
+      </select>
+    </div>
+    <div id="causalWrap-${f.id}" style="display:${f.estado_entrega==='ok'||!f.estado_entrega?'none':'block'}">
+      <label>Causal de devolución</label>
+      <select id="causal-${f.id}"><option value="">— seleccionar —</option>${causalesOptions}</select>
+    </div>
+    <div id="vendWrap-${f.id}" style="display:${showVendedor?'block':'none'}">
+      <label>Vendedor / asesor</label>
+      <div class="tag-vendedor">
+        <select id="vend-${f.id}" style="flex:1"><option value="">— seleccionar —</option>${vendedoresOptions}</select>
+        <button class="btn secondary sm" onclick="openVendedorModal('${f.id}')">➕</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid g3" style="margin-top:10px">
+    <div><label>Saldo a favor del cliente</label><input id="saldo-${f.id}" type="number" step="0.01" value="${f.saldo_favor||0}"></div>
+    <div><label>Retenciones</label><input id="ret-${f.id}" type="number" step="0.01" value="${f.retenciones||0}"></div>
+    <div><label>Total a pagar (calculado)</label><input id="apagar-${f.id}" type="number" value="${(Number(f.valor_total||0)-Number(f.saldo_favor||0)-Number(f.retenciones||0)).toFixed(2)}" disabled></div>
+  </div>
+
+  <div id="novedadPanel-${f.id}" class="novedad-panel" style="display:${f.estado_entrega==='novedad'?'block':'none'}">
+    <h3 style="margin-top:0">Producto con novedad / devolución parcial</h3>
+    <div class="grid g4">
+      <div><label>Producto</label><select id="prodSel-${f.id}">${prodOptions}</select></div>
+      <div><label>Cantidad a devolver</label><input id="cantDev-${f.id}" type="number" min="0"></div>
+      <div><label>Causal</label><select id="prodCausal-${f.id}">${CAUSALES.filter(c=>!c.startsWith('12')).map(c=>`<option>${c}</option>`).join('')}</select></div>
+      <div style="align-self:end"><button class="btn amber sm" onclick="confirmarDevolucionParcial('${f.id}')">Confirmar producto devuelto</button></div>
+    </div>
+  </div>
+
+  <div class="hr"></div>
+  <label>Firma digital ${f.estado_entrega && f.estado_entrega!=='ok' ? '(requerida)':'(opcional)'}</label>
+  <div class="sig-wrap"><canvas id="sig-${f.id}"></canvas></div>
+  <div class="sig-actions">
+    <button class="btn secondary sm" onclick="clearSignature('${f.id}')">🧹 Limpiar firma</button>
+  </div>
+
+  <div class="hr"></div>
+  <button class="btn green" onclick="confirmarEntrega('${f.id}')">✅ Confirmar / Guardar entrega</button>
+  `;
+}
+
+window.onEstadoChange = function(fid, val){
+  document.getElementById('causalWrap-'+fid).style.display = (val==='ok'||!val) ? 'none' : 'block';
+  document.getElementById('vendWrap-'+fid).style.display = (val==='novedad'||val==='devolucion') ? 'block' : 'none';
+  document.getElementById('novedadPanel-'+fid).style.display = (val==='novedad') ? 'block' : 'none';
+};
+
+window.openVendedorModal = function(fid){
+  window._vendedorTargetFid = fid;
+  document.getElementById('nuevoVendedorInput').value='';
+  openModal('modalVendedor');
+};
+document.getElementById('btnConfirmVendedor').addEventListener('click', async ()=>{
+  const nombre = document.getElementById('nuevoVendedorInput').value.trim();
+  if(!nombre) return toast('Escribe un nombre','err');
+  try{
+    const {error} = await sb.from('vendedores').insert({nombre: nombre.toUpperCase()});
+    if(error && error.code !== '23505') throw error;
+    await loadVendedores();
+    closeModal('modalVendedor');
+    renderInvoices();
+    toast('Vendedor agregado','ok');
+    const sel = document.getElementById('vend-'+window._vendedorTargetFid);
+    if(sel){
+      setTimeout(()=>{ sel.value = nombre.toUpperCase(); }, 50);
+    }
+  }catch(e){ console.error(e); toast('Error agregando vendedor','err'); }
+});
+
+/* --- Firma digital: canvas simple --- */
+const sigPads = {}; // fid -> {canvas, ctx, drawing}
+function setupSignaturePad(fid){
+  const canvas = document.getElementById('sig-'+fid);
+  if(!canvas || sigPads[fid]) return;
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr; canvas.height = 130 * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr,dpr);
+  ctx.strokeStyle = '#0d3b66'; ctx.lineWidth = 2; ctx.lineCap='round';
+  let drawing = false, last=null;
+  function pos(e){
+    const r = canvas.getBoundingClientRect();
+    const t = e.touches ? e.touches[0] : e;
+    return {x: t.clientX - r.left, y: t.clientY - r.top};
+  }
+  function start(e){ drawing=true; last=pos(e); e.preventDefault(); }
+  function move(e){
+    if(!drawing) return;
+    const p = pos(e);
+    ctx.beginPath(); ctx.moveTo(last.x,last.y); ctx.lineTo(p.x,p.y); ctx.stroke();
+    last=p; e.preventDefault();
+  }
+  function end(){ drawing=false; }
+  canvas.addEventListener('mousedown', start); canvas.addEventListener('mousemove', move); window.addEventListener('mouseup', end);
+  canvas.addEventListener('touchstart', start); canvas.addEventListener('touchmove', move); canvas.addEventListener('touchend', end);
+  sigPads[fid] = {canvas, ctx};
+}
+window.clearSignature = function(fid){
+  const s = sigPads[fid];
+  if(s){ s.ctx.clearRect(0,0,s.canvas.width,s.canvas.height); }
+};
+function getSignatureData(fid){
+  const s = sigPads[fid];
+  if(!s) return null;
+  return s.canvas.toDataURL('image/png');
+}
+// inicializar pads cada vez que se re-renderiza
+const invoicesObserver = new MutationObserver(()=>{
+  document.querySelectorAll('[id^="sig-"]').forEach(c=>{
+    const fid = c.id.replace('sig-','');
+    setupSignaturePad(fid);
+  });
+});
+invoicesObserver.observe(document.getElementById('invoicesList'), {childList:true, subtree:true});
+
+/* --- Confirmar producto con devolución parcial --- */
+window.confirmarDevolucionParcial = async function(fid){
+  const f = state.facturas.find(x=>x.id===fid);
+  if(!f) return;
+  const pid = document.getElementById('prodSel-'+fid).value;
+  const cant = Number(document.getElementById('cantDev-'+fid).value)||0;
+  const causal = document.getElementById('prodCausal-'+fid).value;
+  if(!pid || cant<=0) return toast('Selecciona el producto y una cantidad válida','err');
+  const p = f.productos.find(x=>x.id===pid);
+  if(!p) return toast('Producto no encontrado','err');
+  const disponible = p.cantidad - (p.cantidad_devuelta||0);
+  if(cant > disponible) return toast('La cantidad excede lo disponible en la factura','err');
+
+  const nuevaCantDev = (p.cantidad_devuelta||0) + cant;
+  const valorUnit = p.cantidad ? (p.valor_neto / p.cantidad) : 0;
+  const nuevoValorFactura = Number(f.valor_total||0) - (valorUnit * cant);
+
+  try{
+    await sb.from('factura_productos').update({cantidad_devuelta: nuevaCantDev, tiene_novedad:true}).eq('id', pid);
+    await sb.from('facturas').update({valor_total: nuevoValorFactura}).eq('id', fid);
+    await sb.from('devoluciones').insert({
+      factura_id: fid, fecha: f.fecha, placa: f.placa, cliente: f.cliente,
+      factura_numero: f.factura_numero, asesor_comercial: f.vendedor || '',
+      causal, codigo_producto: p.producto, descripcion: p.producto,
+      cantidad_botellas: cant, firma_cliente: getSignatureData(fid)
+    });
+    toast('Devolución de producto registrada','ok');
+    document.getElementById('cantDev-'+fid).value = '';
+    await loadFacturas(); await loadDevoluciones();
+    renderAll();
+  }catch(e){ console.error(e); toast('Error registrando la devolución','err'); }
+};
+
+/* --- Confirmar entrega completa (guarda encabezado) --- */
+window.confirmarEntrega = async function(fid){
+  const f = state.facturas.find(x=>x.id===fid);
+  if(!f) return;
+  const forma_pago = document.getElementById('fp-'+fid).value;
+  const estado = document.getElementById('est-'+fid).value;
+  const causal = document.getElementById('causal-'+fid) ? document.getElementById('causal-'+fid).value : '';
+  const vendedor = document.getElementById('vend-'+fid) ? document.getElementById('vend-'+fid).value : '';
+  const saldo = Number(document.getElementById('saldo-'+fid).value)||0;
+  const ret = Number(document.getElementById('ret-'+fid).value)||0;
+  const firma = getSignatureData(fid);
+
+  if(!estado) return toast('Selecciona el estado de la entrega','err');
+  if(estado !== 'ok' && !firma) return toast('Se requiere firma digital para novedad/devolución','err');
+  if((estado==='novedad'||estado==='devolucion') && !vendedor) return toast('Selecciona el vendedor/asesor','err');
+
+  let nuevoValorTotal = Number(f.valor_total||0);
+
+  try{
+    if(estado === 'devolucion'){
+      // se descuenta TODA la factura y se registra una fila de devolución por cada producto restante
+      for(const p of (f.productos||[])){
+        const restante = p.cantidad - (p.cantidad_devuelta||0);
+        if(restante > 0){
+          await sb.from('factura_productos').update({cantidad_devuelta: p.cantidad, tiene_novedad:true}).eq('id', p.id);
+          await sb.from('devoluciones').insert({
+            factura_id: fid, fecha: f.fecha, placa: f.placa, cliente: f.cliente,
+            factura_numero: f.factura_numero, asesor_comercial: vendedor,
+            causal: causal || '12- DEV TOTAL FACTURA', codigo_producto: p.producto,
+            descripcion: 'DEV TOTAL FACTURA', cantidad_botellas: restante, firma_cliente: firma
+          });
+        }
+      }
+      nuevoValorTotal = 0;
+    } else {
+      nuevoValorTotal = Math.max(0, Number(f.valor_total||0) - saldo - ret);
+    }
+
+    await sb.from('facturas').update({
+      forma_pago, estado_entrega: estado, causal_devolucion: causal, vendedor,
+      saldo_favor: saldo, retenciones: ret, firma_digital: firma, valor_total: nuevoValorTotal
+    }).eq('id', fid);
+
+    toast('Entrega confirmada y guardada','ok');
+    await loadFacturas(); await loadDevoluciones();
+    renderAll();
+  }catch(e){ console.error(e); toast('Error guardando la entrega','err'); }
+};
+
+/* =====================================================================
+   SECCIÓN 2 · DEVOLUCIONES
+===================================================================== */
+function renderDevoluciones(){
+  const body = document.getElementById('devolucionesBody');
+  if(state.devoluciones.length===0){
+    body.innerHTML = '<tr><td colspan="10" class="empty">Aún no hay devoluciones registradas.</td></tr>';
+    return;
+  }
+  body.innerHTML = state.devoluciones.map(d => `
+    <tr data-id="${d.id}">
+      <td data-f="fecha">${fmtDate(d.fecha)}</td>
+      <td data-f="placa">${escapeHtml(d.placa||'')}</td>
+      <td data-f="cliente">${escapeHtml(d.cliente||'')}</td>
+      <td data-f="factura_numero">${escapeHtml(d.factura_numero||'')}</td>
+      <td data-f="asesor_comercial">${escapeHtml(d.asesor_comercial||'')}</td>
+      <td data-f="causal">${escapeHtml(d.causal||'')}</td>
+      <td data-f="codigo_producto">${escapeHtml(d.codigo_producto||'')}</td>
+      <td data-f="descripcion">${escapeHtml(d.descripcion||'')}</td>
+      <td data-f="cantidad_botellas">${d.cantidad_botellas||0}</td>
+      <td>${d.firma_cliente ? `<img src="${d.firma_cliente}" style="height:28px">` : '—'}</td>
+    </tr>`).join('');
+}
+
+let editMode = false;
+document.getElementById('btnToggleEdit').addEventListener('click', ()=>{
+  editMode = !editMode;
+  document.querySelectorAll('#devolucionesBody td[data-f]').forEach(td=>{
+    td.contentEditable = editMode;
+  });
+  document.getElementById('btnSaveEdits').style.display = editMode ? 'inline-flex' : 'none';
+  document.getElementById('btnToggleEdit').textContent = editMode ? '✖️ Cancelar edición' : '✏️ Editar plantilla';
+});
+document.getElementById('btnSaveEdits').addEventListener('click', async ()=>{
+  const rows = document.querySelectorAll('#devolucionesBody tr[data-id]');
+  for(const row of rows){
+    const id = row.dataset.id;
+    const update = {};
+    row.querySelectorAll('td[data-f]').forEach(td=>{
+      update[td.dataset.f] = td.textContent.trim();
+    });
+    try{ await sb.from('devoluciones').update(update).eq('id', id); }catch(e){ console.error(e); }
+  }
+  toast('Cambios guardados','ok');
+  editMode = false;
+  document.getElementById('btnSaveEdits').style.display = 'none';
+  document.getElementById('btnToggleEdit').textContent = '✏️ Editar plantilla';
+  await loadDevoluciones(); renderDevoluciones();
+});
+
+/* --- Generar PDF tamaño carta con la plantilla F-GL-001 --- */
+document.getElementById('btnGenPdf').addEventListener('click', ()=>{
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({unit:'pt', format:'letter'});
+  const pageW = doc.internal.pageSize.getWidth();
+
+  doc.setFontSize(13); doc.setFont(undefined,'bold');
+  doc.text('LICONSUMAR Del Magdalena', 40, 40);
+  doc.setFontSize(10); doc.setFont(undefined,'normal');
+  doc.text('CÓDIGO F-GL-001', pageW-40, 40, {align:'right'});
+  doc.setFontSize(14); doc.setFont(undefined,'bold');
+  doc.text('FORMATO DEVOLUCIÓN DE PEDIDOS', pageW/2, 62, {align:'center'});
+
+  doc.setFontSize(9); doc.setFont(undefined,'bold');
+  doc.text('CAUSALES DE DEVOLUCIÓN', 40, 84);
+  doc.setFont(undefined,'normal'); doc.setFontSize(8);
+  const causalCols = [
+    ["1- SIN DINERO","4- NO HIZO PEDIDO","7- PTO POR ESTAMPILLAR","10- ESTABLECIMIENTO CERRADO"],
+    ["2- ERROR DE DIGITACIÓN","5- O.C. CERRADA","8- FECHA DE VENCIMIENTO","11- PROBLEMAS DE CALIDAD"],
+    ["3- ERROR DE DESPACHO","6- CLIENTE AUSENTE","9- AVERÍA EN TRANSPORTE","12- DEV TOTAL FACTURA"]
+  ];
+  causalCols.forEach((col,ci)=>{
+    col.forEach((txt,ri)=>{
+      doc.text(txt, 40 + ci*185, 98 + ri*13);
+    });
+  });
+
+  const hoy = new Date().toLocaleDateString('es-CO');
+  doc.setFontSize(9);
+  doc.text(`FECHA: ${hoy}`, 40, 158);
+  doc.text(`PLACA: ${document.getElementById('hdrPlaca').value || ''}`, 300, 158);
+
+  const rows = state.devoluciones.map(d => [
+    fmtDate(d.fecha), d.placa||'', d.cliente||'', d.factura_numero||'',
+    d.asesor_comercial||'', d.causal||'', d.codigo_producto||'', d.descripcion||'',
+    String(d.cantidad_botellas||0), ''
+  ]);
+
+  doc.autoTable({
+    startY: 170,
+    head: [['Fecha','Placa','Cliente','Factura','Asesor','Causal','Cód. Prod.','Descripción','Cant.','Firma']],
+    body: rows,
+    styles:{fontSize:7, cellPadding:3, minCellHeight:26},
+    headStyles:{fillColor:[13,59,102], textColor:255},
+    columnStyles:{9:{cellWidth:60}},
+    didDrawCell: (data)=>{
+      if(data.section==='body' && data.column.index===9){
+        const d = state.devoluciones[data.row.index];
+        if(d && d.firma_cliente){
+          try{ doc.addImage(d.firma_cliente, 'PNG', data.cell.x+2, data.cell.y+2, data.cell.width-4, data.cell.height-4); }catch(e){}
+        }
+      }
+    }
+  });
+
+  const finalY = doc.lastAutoTable.finalY + 30;
+  doc.setFontSize(9);
+  doc.text('_______________________________', 40, finalY);
+  doc.text('FIRMA RESPONSABLE DE RECIBO', 40, finalY+14);
+  doc.text('_______________________________', 330, finalY);
+  doc.text('FIRMA DE QUIEN ENTREGA', 330, finalY+14);
+
+  doc.save(`Devolucion_${new Date().toISOString().slice(0,10)}.pdf`);
+});
+
+/* =====================================================================
+   SECCIÓN 3 · CUADRE DE RUTA
+===================================================================== */
+function planillaKey(f){ return [f.numero_planilla||'', f.entregador||'', f.placa||'', f.fecha||''].join('|'); }
+
+function renderPlanillaOptions(){
+  const sel = document.getElementById('selPlanilla');
+  const keys = {};
+  state.facturas.forEach(f=>{
+    const k = planillaKey(f);
+    if(!keys[k]) keys[k] = f;
+  });
+  const current = sel.value;
+  sel.innerHTML = '<option value="">— elegir —</option>' + Object.keys(keys).map(k=>{
+    const f = keys[k];
+    const label = `Planilla ${f.numero_planilla||'s/n'} · ${f.entregador||'s/e'} · ${f.placa||'s/p'} · ${f.fecha||''}`;
+    return `<option value="${encodeURIComponent(k)}">${label}</option>`;
+  }).join('');
+  if(current) sel.value = current;
+}
+
+document.getElementById('selPlanilla').addEventListener('change', renderCuadre);
+document.getElementById('btnRefreshCuadre').addEventListener('click', renderCuadre);
+document.getElementById('cuadreEsperado').addEventListener('change', renderCuadre);
+
+function renderCuadre(){
+  const sel = document.getElementById('selPlanilla');
+  const box = document.getElementById('cuadreDoc');
+  if(!sel.value){ box.innerHTML = '<div class="empty">Selecciona una planilla para ver el cuadre.</div>'; return; }
+  const key = decodeURIComponent(sel.value);
+  const facs = state.facturas.filter(f => planillaKey(f) === key);
+  if(facs.length===0){ box.innerHTML = '<div class="empty">Sin facturas para esta planilla.</div>'; return; }
+  const meta = facs[0];
+
+  const cat = {
+    'Dev.totales':0, 'Dev.parciales':0, 'Reenvio':0, 'Credito':0, 'Retenciones':0,
+    'Saldo a Favor':0, 'Transferencia':0, 'Mixta. Transf':0, 'Mixta. Efectivo':0, 'Efectivo':0
+  };
+  const cnt = { ...Object.fromEntries(Object.keys(cat).map(k=>[k,0])) };
+
+  facs.forEach(f=>{
+    let bucket = null;
+    if(f.estado_entrega==='devolucion') bucket='Dev.totales';
+    else if(f.estado_entrega==='novedad') bucket='Dev.parciales';
+    else if(f.forma_pago==='Reenvio') bucket='Reenvio';
+    else if(f.forma_pago==='Crédito') bucket='Credito';
+    else if(f.forma_pago==='Transferencia') bucket='Transferencia';
+    else if(f.forma_pago==='Mixta Transferencia') bucket='Mixta. Transf';
+    else if(f.forma_pago==='Mixta Efectivo') bucket='Mixta. Efectivo';
+    else if(f.forma_pago==='Efectivo') bucket='Efectivo';
+    if(bucket){ cat[bucket]+=Number(f.valor_total||0); cnt[bucket]++; }
+    if(Number(f.retenciones)>0){ cat['Retenciones']+=Number(f.retenciones); cnt['Retenciones']++; }
+    if(Number(f.saldo_favor)>0){ cat['Saldo a Favor']+=Number(f.saldo_favor); cnt['Saldo a Favor']++; }
+  });
+
+  const totalEfectivo = cat['Efectivo'] + cat['Mixta. Efectivo'];
+  const totalFacturasValor = facs.reduce((s,f)=>s+Number(f.valor_total_original||0),0);
+  const totalLegalizar = totalEfectivo + cat['Transferencia'] + cat['Mixta. Transf'] + cat['Credito'];
+  const esperado = Number(document.getElementById('cuadreEsperado').value)||0;
+  const diff = esperado - totalFacturasValor;
+
+  box.innerHTML = `
+    <div style="text-align:center;margin-bottom:6px">
+      <div style="font-weight:800;color:var(--azul);font-size:16px">LICONSUMAR DEL MAGDALENA</div>
+      <div style="font-weight:700">CUADRE DE RUTA</div>
+    </div>
+    <div class="grid g4">
+      <div><label>Fecha</label><input value="${fmtDate(meta.fecha)}" disabled></div>
+      <div><label>Planilla</label><input value="${meta.numero_planilla||''}" disabled></div>
+      <div><label>Vehículo</label><input value="${meta.placa||''}" disabled></div>
+      <div><label>Entregador</label><input value="${meta.entregador||''}" disabled></div>
+    </div>
+    <div class="grid g2" style="margin-top:10px">
+      <div><label>Valor total planilla (esperado, digitado por logística)</label><input value="${money(esperado)}" disabled></div>
+      <div><label>Cta. total facturas / suma real</label><input value="${facs.length} facturas · ${money(totalFacturasValor)}" disabled></div>
+    </div>
+    ${esperado>0 ? `<div class="small" style="margin-top:6px;color:${Math.abs(diff)<0.01?'var(--verde)':'var(--rojo)'}">
+        ${Math.abs(diff)<0.01 ? '✅ El cuadre coincide con el valor esperado de la planilla.' : `⚠️ Diferencia de ${money(diff)} respecto al valor esperado.`}
+      </div>` : ''}
+    <div class="hr"></div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Concepto</th><th class="right">Cta. facturas</th><th class="right">Valor</th></tr></thead>
+        <tbody>
+          ${Object.keys(cat).map(k=>`<tr><td>${k}</td><td class="right">${cnt[k]}</td><td class="right">${money(cat[k])}</td></tr>`).join('')}
+          <tr style="font-weight:700;background:var(--azul-suave)"><td>Total Efectivo</td><td></td><td class="right">${money(totalEfectivo)}</td></tr>
+          <tr style="font-weight:700;background:var(--azul-suave)"><td>Total a Legalizar</td><td></td><td class="right">${money(totalLegalizar)}</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="hr"></div>
+    <label>Dinero entregado en caja</label>
+    <input id="dineroCaja" placeholder="Valor entregado físicamente">
+    <div class="grid g2" style="margin-top:20px">
+      <div style="text-align:center">_______________________________<br><span class="small">RECIBIDO LOGÍSTICA</span></div>
+      <div style="text-align:center">_______________________________<br><span class="small">RECIBIDO CAJA</span></div>
+    </div>
+  `;
+}
+
+document.getElementById('btnPrintCuadre').addEventListener('click', ()=>{
+  const content = document.getElementById('cuadreDoc').innerHTML;
+  const w = window.open('', '_blank');
+  w.document.write(`<html><head><title>Cuadre de Ruta</title>
+    <style>body{font-family:Arial,sans-serif;padding:24px} table{width:100%;border-collapse:collapse} td,th{border:1px solid #ccc;padding:6px;font-size:12px} input{border:none;font-size:13px} label{font-size:11px;color:#555;display:block}</style>
+    </head><body>${content}</body></html>`);
+  w.document.close(); w.focus();
+  setTimeout(()=>w.print(), 400);
+});
+
+/* =====================================================================
+   SECCIÓN 4 · FACTURAS REENVÍO
+===================================================================== */
+document.getElementById('btnAddReenvio').addEventListener('click', async ()=>{
+  const payload = {
+    factura_numero: document.getElementById('reFactura').value.trim(),
+    cliente: document.getElementById('reCliente').value.trim(),
+    valor_total: Number(document.getElementById('reValor').value)||0,
+    fecha: document.getElementById('reFecha').value || null,
+    entregador: document.getElementById('reEntregador').value.trim(),
+    placa: document.getElementById('rePlaca').value.trim(),
+    observaciones: document.getElementById('reObs').value.trim()
+  };
+  if(!payload.factura_numero) return toast('Ingresa el número de factura','err');
+  try{
+    const {error} = await sb.from('reenvios').insert(payload);
+    if(error) throw error;
+    ['reFactura','reCliente','reValor','reFecha','reEntregador','rePlaca','reObs'].forEach(id=>document.getElementById(id).value='');
+    toast('Factura de reenvío agregada','ok');
+    await loadReenvios(); renderReenvios();
+  }catch(e){ console.error(e); toast('Error guardando el reenvío','err'); }
+});
+
+function renderReenvios(){
+  const body = document.getElementById('reenvioBody');
+  if(state.reenvios.length===0){
+    body.innerHTML = '<tr><td colspan="8" class="empty">Sin facturas de reenvío.</td></tr>';
+  } else {
+    body.innerHTML = state.reenvios.map(r=>`
+      <tr>
+        <td>${escapeHtml(r.factura_numero)}</td><td>${escapeHtml(r.cliente||'')}</td>
+        <td>${money(r.valor_total)}</td><td>${fmtDate(r.fecha)}</td>
+        <td>${escapeHtml(r.entregador||'')}</td><td>${escapeHtml(r.placa||'')}</td>
+        <td>${escapeHtml(r.observaciones||'')}</td>
+        <td><button class="btn secondary sm" onclick="deleteReenvio('${r.id}')">🗑️</button></td>
+      </tr>`).join('');
+  }
+  const total = state.reenvios.reduce((s,r)=>s+Number(r.valor_total||0),0);
+  document.getElementById('reenvioTotales').textContent = `${state.reenvios.length} facturas · ${money(total)}`;
+}
+window.deleteReenvio = async function(id){
+  if(!confirm('¿Eliminar esta factura de reenvío?')) return;
+  try{
+    const {error} = await sb.from('reenvios').delete().eq('id', id);
+    if(error) throw error;
+    await loadReenvios(); renderReenvios();
+  }catch(e){ console.error(e); toast('Error eliminando','err'); }
+};
+
+/* =====================================================================
+   INICIO
+===================================================================== */
+initApp();
+</script>
+</body>
+</html>
